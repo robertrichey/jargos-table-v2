@@ -84,15 +84,24 @@
 //
 
 
-Event finished; Event e; .5::second => dur T; 
-Hid KBhi; HidMsg kbmsg; 
+Event finished; 
+Event e; 
+0.5::second => dur T; 
+Hid KBhi; 
+HidMsg kbmsg; 
 0 => int kbdevice;
-if( me.args() ) me.arg(0) => Std.atoi => kbdevice;
-if( !KBhi.openKeyboard( kbdevice ) ) me.exit(); 
-//
+
+if (me.args()) {
+    me.arg(0) => Std.atoi => kbdevice;
+}
+if (!KBhi.openKeyboard(kbdevice)) {
+    me.exit(); 
+}
+
 // NETWORK PARAMETERS
 OscSend xmit;
-xmit.setHost( "224.0.0.1", 5504 );		
+xmit.setHost("224.0.0.1", 5504);		
+
 // key map
 int key[256];
 0 => key[29];//z
@@ -145,28 +154,28 @@ int key[256];
 47 => key[44]; //space////
 
 //
-while( true )
-{
+while (true) {
     KBhi => now;
-    while( KBhi.recv( kbmsg ) )
-    {   if( kbmsg.which > 256 ) continue;
-       if( kbmsg.isButtonDown() )
-        {    
-            if (key[kbmsg.which] > 20) continue;
+    
+    while (KBhi.recv(kbmsg)) {
+        if(kbmsg.which > 256) {
+            continue;
+        }
+        if (kbmsg.isButtonDown()) {    
+            if (key[kbmsg.which] > 20) {
+                continue;
+            }
             <<< key[kbmsg.which] >>>;
             send_ControlSignal(key[kbmsg.which]);
-            
         }
     }
 }
-//
-fun void send_ControlSignal(int x)
-{   
+
+// TODO missing OSC send?
+fun void send_ControlSignal(int x) {   
     xmit.startMsg( "/Color", "i" );
     x => xmit.addInt;
-   // <<< x >>>;
-
- 
-   }
-//
-
+    // <<< x >>>;
+    
+    
+}
