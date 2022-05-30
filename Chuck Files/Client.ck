@@ -131,14 +131,14 @@ for (0 => int i; i < 4; i++) {
     recv[i].listen();
 }
 
-recv[0].event( "/Pulse, i" ) @=> OscEvent msg1;
-recv[0].event( "/instrumentRhythm, i i i" ) @=> OscEvent msg2;//station
+recv[0].event("/Pulse, i") @=> OscEvent msg1;
+recv[0].event("/instrumentRhythm, i i i") @=> OscEvent msg2;//station
 //
-recv[1].event( "/Timbre, i i" ) @=> OscEvent msg3;
+recv[1].event("/Timbre, i i") @=> OscEvent msg3;
 //
-recv[2].event( "/Rhythm, i i" ) @=> OscEvent msg4;
+recv[2].event("/Rhythm, i i") @=> OscEvent msg4;
 //
-recv[3].event( "/Color, i" ) @=> OscEvent msg5;
+recv[3].event("/Color, i") @=> OscEvent msg5;
 
 Gain MainOut => dac;
 float Main => MainOut.gain;
@@ -612,7 +612,7 @@ fun int getKarpFreeVoice() {
 }
 
 //
-fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) {
+fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) { 
     getSweepKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
@@ -634,7 +634,7 @@ fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pl
 // 
 fun int getSweepKarpFreeVoice() {        
     for(0 => int i; i < numSweepKarpvoices; i++) {
-        if{(SweepKarpvoices[i] == 0) { 
+        if (SweepKarpvoices[i] == 0) { 
             1 => SweepKarpvoices[i];
             return i; 
         }
@@ -688,7 +688,7 @@ fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
 
 // 
 fun int getBloFreeVoice() {        
-    for (0 => int i; i < numBlo; i++) {
+    for (0 => int i; i < numBlo; i++){
         if (Blovoices[i] == 0) { 
             1 => Blovoices[i];
             return i; 
