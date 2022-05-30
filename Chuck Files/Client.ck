@@ -284,10 +284,11 @@ comp.compress();
 int Blovoices[numBlo];
 BlowBotl bottle[numBlo]; 
 ResonZ res[numBlo];
-Envelope env[numBlo]; 
+Envelope env[numBlo];
+
 for (0 => int i; i < numBlo; i++){ 
     bottle[i] => res[i] => env[i];
-    res[i].set(Std.rand2f(315.0, 325.0), Std.rand2f (0.35, 0.6));
+    res[i].set(Std.rand2f(315.0, 325.0), Std.rand2f(0.35, 0.6));
     0 => Blovoices[i]; //reset voices to get
 }
 
@@ -404,7 +405,7 @@ fun void waitForUnison(Event e, int reps) {
     DelayArray[DelayIndex]::T => now;
     //<<< "wait" >>>;
     
-    for (int i; i<reps; i++) {   //<<< i >>>;
+    for (int i; i < reps; i++) {   //<<< i >>>;
         // temp
         
         
@@ -414,31 +415,28 @@ fun void waitForUnison(Event e, int reps) {
         ringTime[durationIndex] @=> float ringSeq[]; 
         Talea[taleaIndex] @=> float taleaSeq[];
         seq1[i%seq1.cap()] => int note;
-        ringSeq[i%ringSeq.cap()]::T => dur len;
-        if (timbre == 0) 
-        {
+        ringSeq[i % ringSeq.cap()]::T => dur len;
+        
+        if (timbre == 0) {
             <<< "Sine" >>>;
             spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
         }
-        else if (timbre == 1) 
-        {
+        else if (timbre == 1) {
             <<< "Blo" >>>;
             spork ~ playBlo(note, len, 8::ms, 10::ms);
         }
-        else if (timbre == 2)
-        {
+        else if (timbre == 2) {
             <<< "Pluk" >>>;
             spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.9));
         }
-        else if (timbre == 3)
-        {
+        else if (timbre == 3) {
             <<< "Sweep" >>>;
             spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
         }
-        taleaSeq[i%taleaSeq.cap()]::T => now; 
+        taleaSeq[i % taleaSeq.cap()]::T => now; 
     } 
     off.signal();
-    //<<< "done" >>>;
+    // <<< "done" >>>;
     off => now;
 }
 
@@ -474,7 +472,10 @@ fun int selectTexture(int foo) {
     
     for (0 => int i; i < TextureBang.cap(); i++) {
         TextureBang[i] => int test;
-        if (test == foo) 1 +=> check;
+        
+        if (test == foo) {
+            1 +=> check;
+        }
     }
     
     if (check > -1) {
@@ -517,7 +518,10 @@ fun int selectRhythm(int foo) {
     
     for (0 => int i; i < RhythmRoute.cap(); i++) {
         RhythmRoute[i] => int test;
-        if (test == foo) 1 +=> check;
+        
+        if (test == foo) {
+            1 +=> check;
+        }
     }
     
     if (check > -1) {
@@ -559,10 +563,12 @@ fun int selectTimbre(int foo) {
     machineArray[jack] @=>  int TimbreRoute[];
     -1 => int check;
     
-    for (0 => int i; i < TimbreRoute.cap(); i++)
-    {
+    for (0 => int i; i < TimbreRoute.cap(); i++) {
         TimbreRoute[i] => int test;
-        if (test == foo) 1 +=> check;
+        
+        if (test == foo) {
+            1 +=> check;
+        }
     }
     
     if (check > -1) {
@@ -575,7 +581,7 @@ fun int selectTimbre(int foo) {
 
 ////
 
-fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){{ 
+fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) {
     getKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
@@ -596,7 +602,7 @@ fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){
 
 // 
 fun int getKarpFreeVoice() {        
-    for (0 => int i; i < numKarpvoices; i++){{
+    for (0 => int i; i < numKarpvoices; i++) {
         if (Karpvoices[i] == 0) { 
             1 => Karpvoices[i];
             return i; 
@@ -606,7 +612,7 @@ fun int getKarpFreeVoice() {
 }
 
 //
-fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){{ 
+fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) {
     getSweepKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
@@ -682,7 +688,7 @@ fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
 
 // 
 fun int getBloFreeVoice() {        
-    for (0 => int i; i < numBlo; i++){
+    for (0 => int i; i < numBlo; i++) {
         if (Blovoices[i] == 0) { 
             1 => Blovoices[i];
             return i; 
