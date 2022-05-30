@@ -79,28 +79,57 @@
 // not depend on the PLOrk paradigm, i.e. laptop-amp-stations firmly located in space.
 // 
 //-----------------------------------------------------------------------------
-//
-0.9=>dac.gain; //adjust manually
-int myMachine;
-if( me.args() ) me.arg(0) => Std.atoi => myMachine;
-if (myMachine <= 0 || myMachine > 4) <<< "Not a valid machine choice." >>>;
-else <<< "My machine is number:", myMachine >>>;
-//
-[.5, 1., 1.5, .16666666667, .33333333] @=> float Tempo[]; int TempoIndex;
-[50, 300, 1000, 2000, 5000] @=> int fadeValues[]; int fadeValueIndex;
-Event finished; Event e; Event timeMe; Tempo[TempoIndex]::second => dur T; 1::second => dur tick;
-int colorIndex; int durationIndex; int taleaIndex; int timbre; int DelayIndex;
 
+
+// TODO comments and casing for below globals --------------------------------------------------
 //
+0.9 => dac.gain; //adjust manually
+
+int myMachine;
+
+// TODO confirm logic
+if (me.args()) {
+    me.arg(0) => Std.atoi => myMachine;
+}
+
+if (myMachine <= 0 || myMachine > 4) {
+    <<< "Not a valid machine choice." >>>;
+} 
+else {
+    <<< "My machine is number:", myMachine >>>;
+}
+
+// TODO refactor floats as fractions?
+[0.5, 1.0, 1.5, 0.16666666667, 0.33333333] @=> float Tempo[];
+
+int TempoIndex;
+
+[50, 300, 1000, 2000, 5000] @=> int fadeValues[];
+
+int fadeValueIndex;
+
+Event finished;
+Event e;
+Event timeMe;
+Tempo[TempoIndex]::second => dur T;
+1::second => dur tick;
+int colorIndex;
+int durationIndex;
+int taleaIndex;
+int timbre;
+int DelayIndex;
+
 //
 OscRecv recv[4];
 5501 => recv[0].port;//receives texture and pulse
 5502 => recv[1].port;//receives timbre
 5503 => recv[2].port;//receives rhythm/offset
 5504 => recv[3].port;//receives pitch
+
 //
-for( int i; i < 4; i++ )
-{recv[i].listen();}
+for (0 => int i; i < 4; i++) {
+    recv[i].listen();
+}
 
 recv[0].event( "/Pulse, i" ) @=> OscEvent msg1;
 recv[0].event( "/instrumentRhythm, i i i" ) @=> OscEvent msg2;//station
@@ -110,10 +139,11 @@ recv[1].event( "/Timbre, i i" ) @=> OscEvent msg3;
 recv[2].event( "/Rhythm, i i" ) @=> OscEvent msg4;
 //
 recv[3].event( "/Color, i" ) @=> OscEvent msg5;
-//
+
 Gain MainOut => dac;
 float Main => MainOut.gain;
-//
+//-----------------------------------------------------------------------------------------------
+
 // Karp OrK tunings
 32.7 => float c1; //24
 34.64 => float csh1; //25
@@ -188,84 +218,98 @@ float Main => MainOut.gain;
 1934.65 => float ash6; //94
 2020.63 => float b6; //95
 2190.65 => float c7;//96
-//the array
+
+// the array TODO describe
 [c1, csh1, d1, dsh1, e1, f1, fsh1, g1, gsh1, a1, ash1, b1,
 c2, csh2, d2, dsh2, e2, f2, fsh2, g2, gsh2, a2, ash2, b2,
 c3, csh3, d3, dsh3, e3, f3, fsh3, g3, gsh3, a3, ash3, b3,
 c4, csh4, d4, dsh4, e4, f4, fsh4, g4, gsh4, a4, ash4, b4,
 c5, csh5, d5, dsh5, e5, f5, fsh5, g5, gsh5, a5, ash5, b5,
 c6, csh6, d6, dsh6, e6, f6, fsh6, g6, gsh6, a6, ash6, b6, c7] 
-@=> float pitches[]; int pitchindex;
+@=> float pitches[]; 
+
+// TODO describe
+int pitchindex;
+
 //
 10 => int numKarpvoices;
-int Karpvoices[numKarpvoices];// an array to keep up with voices used
-StifKarp m[numKarpvoices];
+int Karpvoices[numKarpvoices]; // an array to keep up with voices used
+StifKarp m[numKarpvoices]; // TODO variable name
 BPF filter[numKarpvoices];
 Envelope myenv[numKarpvoices];
 JCRev rKarp; 0.05 => rKarp.mix; rKarp => MainOut;
+
 //
-for (0 => int i; i<numKarpvoices;i++){
-    m[i] => filter[i] => myenv[i]; 1. => filter[i].gain;
+for (0 => int i; i < numKarpvoices; i++) {
+    m[i] => filter[i] => myenv[i]; 
+    1.0 => filter[i].gain;
     0.6  => m[i].pickupPosition;// these effect tuning; so, set once 
     1.0  => m[i].sustain => m[i].stretch => m[i].baseLoopGain;   
-    (Std.rand2f(68., 80.), 1.) => filter[i].set;    
-    0 => Karpvoices[i]; //all voices free
+    (Std.rand2f(68.0, 80.0), 1.0) => filter[i].set; // TODO check parentheses - is this broken?
+    0 => Karpvoices[i]; // all voices free
 }
+
 //
 10 => int numSweepKarpvoices;
-int SweepKarpvoices[numSweepKarpvoices];// an array to keep up with voices used
+int SweepKarpvoices[numSweepKarpvoices]; // an array to keep up with voices used
 StifKarp swm[numSweepKarpvoices];
 BPF filtersk[numSweepKarpvoices];
 Envelope myenvsk[numSweepKarpvoices];
 
 //
-for (0 => int i; i<numSweepKarpvoices;i++){
-    swm[i] => filtersk[i] => myenvsk[i]; 2. => filtersk[i].gain;
-    0.6  => swm[i].pickupPosition;// these effect tuning; so, set once 
+for (0 => int i; i < numSweepKarpvoices; i++){
+    swm[i] => filtersk[i] => myenvsk[i]; 
+    2.0 => filtersk[i].gain;
+    0.6  => swm[i].pickupPosition; // these effect tuning; so, set once 
     1.0  => swm[i].sustain => swm[i].stretch => swm[i].baseLoopGain;   
-    (Std.rand2f(68., 80.), 1.) => filtersk[i].set;    
+    (Std.rand2f(68.0, 80.0), 1.0) => filtersk[i].set;    
     0 => SweepKarpvoices[i]; //all voices free
 }
+
 //
- 
 Gain gn[2];
 Gain SweepkpOrk => gn[0];
 gn[0] => DelayL del => HPF f => Dyno comp => MainOut;
-del =>  gn[1]  => del;
+del => gn[1] => del;
+
 // set parameters
 10::ms => del.delay;
 0.15 => gn[0].gain;
 0.99 => gn[1].gain;
 3 => f.Q;
 comp.compress();
+
 //
 10 => int numBlo;
 int Blovoices[numBlo];
 BlowBotl bottle[numBlo]; 
 ResonZ res[numBlo];
 Envelope env[numBlo]; 
-for (int i; i < numBlo; i++){ 
+for (0 => int i; i < numBlo; i++){ 
     bottle[i] => res[i] => env[i];
-    res[i].set(Std.rand2f(315., 325.), Std.rand2f (0.35, 0.6));
+    res[i].set(Std.rand2f(315.0, 325.0), Std.rand2f (0.35, 0.6));
     0 => Blovoices[i]; //reset voices to get
 }
-//
+
 //
 10 => int NumSineVoices;
 SinOsc s[NumSineVoices];
 int SineVoice[NumSineVoices];
 Envelope sineEnv[NumSineVoices];
-for (int i; i<NumSineVoices; i++)
-{ 
-    .03 => s[i].gain;
+
+for (0 => int i; i < NumSineVoices; i++) { 
+    0.03 => s[i].gain;
     s[i] => sineEnv[i];
 }
+
 JCRev rSine => MainOut;
-.25 => rSine.mix;
+0.25 => rSine.mix;
+
 //
 JCRev rBlo => MainOut;
-.15 => rBlo.mix;
-//score parameters
+0.15 => rBlo.mix;
+
+// score parameters
 [[ 58, 60, 62 ], //0
 [57,64, 65, 67], //1
 [50, 60, 64, 65], //2
@@ -288,9 +332,20 @@ JCRev rBlo => MainOut;
 [68, 71, 72, 74, 79],//19
 [45, 52, 53, 55, 64, 69, 72, 74]//20
 ] @=> int Color[][];
-[[.125, .25, .5, 1., 2., 4.], [1., 2., 3., 4., 4.]] @=> float ringTime[][];
-[[.25, .25, .5, .5], [.25, 1., 2.], [.5, .5, 1., 1., .25], [.125, .25, .125, .25, .25, 1., 2], [.125, .125, .5, 1.5, 4., 2.]] @=> float Talea[][];
-[0., 0.25, 0.5, 1., 2.] @=> float DelayArray[];
+
+[[0.125, 0.25, 0.5, 1.0, 2.0, 4.0], 
+[1.0, 2.0, 3.0, 4.0, 4.0]
+] @=> float ringTime[][];
+
+[[0.25, 0.25, 0.5, 0.5], 
+[0.25, 1.0, 2.0], 
+[0.5, 0.5, 1.0, 1.0, 0.25], 
+[0.125, 0.25, 0.125, 0.25, 0.25, 1.0, 2.0], 
+[0.125, 0.125, 0.5, 1.5, 4.0, 2.0]
+] @=> float Talea[][];
+
+[0.0, 0.25, 0.5, 1.0, 2.0] @=> float DelayArray[];
+
 //spork independent threads
 spork ~ Pulse_listener();
 spork ~ getRhythm();
@@ -299,187 +354,235 @@ spork ~ getTimbre();
 spork ~ getColor();
 spork ~ sweep();
 spork ~ timer(timeMe);
+
 //Main loop
 
+// TODO timing?
 1::hour => now;
 
-
+//
+fun void waitForPoly(Event e, int reps) { 
+    Event off;
+    e => now;
+    
+    //<<< "wait" >>>;
+    
+    for (int i; i<reps; i++) {  //<<< i >>>;
+        // temp
+        
+        
+        // not temp
+        Tempo[TempoIndex]::second => dur T;
+        Color[colorIndex] @=> int seq1[];
+        ringTime[durationIndex] @=> float ringSeq[]; 
+        Talea[taleaIndex] @=> float taleaSeq[];
+        seq1[Std.rand2(0,seq1.cap()-1)] => int note;
+        ringSeq[Std.rand2(0,ringSeq.cap()-1)]::T => dur len;
+        if (timbre == 0) {
+            spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
+        }
+        else if (timbre == 1) {
+            spork ~ playBlo(note, len, 8::ms, 10::ms);
+        }
+        else if (timbre == 2) {
+            spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.6, 0.99)); 
+        }
+        else if (timbre == 3) {
+            spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
+        }
+        0.5::T => now; // a periodic groove
+    } 
+    off.signal();
+    // <<< "done" >>>;
+    off => now;
+}
 
 //
-fun void waitForPoly( Event e, int reps )
-{ Event off;
-e => now;
-//<<< "wait" >>>;
-
-for (int i; i<reps; i++)
-{  //<<< i >>>;
-    // temp
-
-
-    // not temp
-    Tempo[TempoIndex]::second => dur T;
-    Color[colorIndex] @=> int seq1[];
-    ringTime[durationIndex] @=> float ringSeq[]; 
-    Talea[taleaIndex] @=> float taleaSeq[];
-    seq1[Std.rand2(0,seq1.cap()-1)] => int note;
-    ringSeq[Std.rand2(0,ringSeq.cap()-1)]::T => dur len;
-    if (timbre == 0) 
-        spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
-    else if (timbre == 1) 
-        spork ~ playBlo(note, len, 8::ms, 10::ms);
-    else if (timbre == 2)
-        spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.6, 0.99)); 
+fun void waitForUnison(Event e, int reps) {
+    Event off;
+    e => now;
+    DelayArray[DelayIndex]::T => now;
+    //<<< "wait" >>>;
+    
+    for (int i; i<reps; i++) {   //<<< i >>>;
+        // temp
+        
+        
+        // not temp
+        Tempo[TempoIndex]::second => dur T;
+        Color[colorIndex] @=> int seq1[];
+        ringTime[durationIndex] @=> float ringSeq[]; 
+        Talea[taleaIndex] @=> float taleaSeq[];
+        seq1[i%seq1.cap()] => int note;
+        ringSeq[i%ringSeq.cap()]::T => dur len;
+        if (timbre == 0) 
+        {
+            <<< "Sine" >>>;
+            spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
+        }
+        else if (timbre == 1) 
+        {
+            <<< "Blo" >>>;
+            spork ~ playBlo(note, len, 8::ms, 10::ms);
+        }
+        else if (timbre == 2)
+        {
+            <<< "Pluk" >>>;
+            spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.9));
+        }
         else if (timbre == 3)
-        spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
- 0.5::T => now; //a periodic groove
-} off.signal();
-//<<< "done" >>>;
-off => now;
+        {
+            <<< "Sweep" >>>;
+            spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
+        }
+        taleaSeq[i%taleaSeq.cap()]::T => now; 
+    } 
+    off.signal();
+    //<<< "done" >>>;
+    off => now;
 }
-//
-fun void waitForUnison( Event e, int reps )
-{  Event off;
-e => now;
-DelayArray[DelayIndex]::T => now;
-//<<< "wait" >>>;
-for (int i; i<reps; i++)
-{   //<<< i >>>;
-    // temp
 
-
-    // not temp
-    Tempo[TempoIndex]::second => dur T;
-    Color[colorIndex] @=> int seq1[];
-    ringTime[durationIndex] @=> float ringSeq[]; 
-    Talea[taleaIndex] @=> float taleaSeq[];
-    seq1[i%seq1.cap()] => int note;
-    ringSeq[i%ringSeq.cap()]::T => dur len;
-    if (timbre == 0) 
-    {
-        <<< "Sine" >>>;
-        spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
-    }
-    else if (timbre == 1) 
-    {
-        <<< "Blo" >>>;
-        spork ~ playBlo(note, len, 8::ms, 10::ms);
-    }
-    else if (timbre == 2)
-    {
-        <<< "Pluk" >>>;
-        spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.9));
-    }
-    else if (timbre == 3)
-    {
-        <<< "Sweep" >>>;
-        spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
-    }
-    taleaSeq[i%taleaSeq.cap()]::T => now; 
-} off.signal();
-//<<< "done" >>>;
-off => now;
-
-}
-//
 // routes Texture data to machine
-fun int selectTexture(int foo)
-{
-    
-    
-    [
-    [1, 5, 7, 11, 15, 17],[1, 5],
-    [2, 6, 7, 12, 16, 17],[2, 5],
-    [3, 5, 7, 13, 14, 17],[3, 5], 
-    [4, 6, 7, 14, 16, 17],[4, 5]
+fun int selectTexture(int foo) {
+    [[1, 5, 7, 11, 15, 17],
+    [1, 5],
+    [2, 6, 7, 12, 16, 17],
+    [2, 5],
+    [3, 5, 7, 13, 14, 17],
+    [3, 5], 
+    [4, 6, 7, 14, 16, 17],
+    [4, 5]
     ] @=> int machineArray[][];
     
     int jack;
-    if ( myMachine == 1 ) 0 => jack;
-    if ( myMachine == 2 ) 2 => jack;
-    if ( myMachine == 3 ) 4 => jack;
-    if ( myMachine == 4 ) 6 => jack;
     
+    if (myMachine == 1) {
+        0 => jack;
+    }
+    if (myMachine == 2) {
+        2 => jack;
+    }
+    if (myMachine == 3) {
+        4 => jack;
+    }
+    if (myMachine == 4) {
+        6 => jack;
+    }
     
-    machineArray[jack] @=>  int TextureBang[];
+    machineArray[jack] @=> int TextureBang[];
     -1 => int check;
-    for (int i; i < TextureBang.cap(); i++)
-    {
+    
+    for (0 => int i; i < TextureBang.cap(); i++) {
         TextureBang[i] => int test;
         if (test == foo) 1 +=> check;
     }
-    if (check > -1) return 1;
-    else return 0;
     
+    if (check > -1) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
+
 //
-fun int selectRhythm(int foo)
-{
-    
-    
-    [
-    [1, 5, 7, 11, 15, 17],[1, 5],
-    [2, 6, 7, 12, 16, 17],[2, 5],
-    [3, 5, 7, 13, 14, 17],[3, 5], 
-    [4, 6, 7, 14, 16, 17],[4, 5]
+fun int selectRhythm(int foo) {
+    [[1, 5, 7, 11, 15, 17],
+    [1, 5],
+    [2, 6, 7, 12, 16, 17],
+    [2, 5],
+    [3, 5, 7, 13, 14, 17],
+    [3, 5], 
+    [4, 6, 7, 14, 16, 17],
+    [4, 5]
     ] @=> int machineArray[][];
     
     int jack;
-    if ( myMachine == 1 ) 1 => jack;
-    if ( myMachine == 2 ) 3 => jack;
-    if ( myMachine == 3 ) 5 => jack;
-    if ( myMachine == 4 ) 7 => jack;
     
+    if (myMachine == 1) {
+        1 => jack;
+    }
+    if (myMachine == 2) {
+        3 => jack;
+    }
+    if (myMachine == 3) {
+        5 => jack;
+    }
+    if (myMachine == 4) {
+        7 => jack;
+    }
     
-    machineArray[jack] @=>  int RhythmRoute[];
+    machineArray[jack] @=> int RhythmRoute[];
     -1 => int check;
-    for (int i; i < RhythmRoute.cap(); i++)
-    {
+    
+    for (0 => int i; i < RhythmRoute.cap(); i++) {
         RhythmRoute[i] => int test;
         if (test == foo) 1 +=> check;
     }
-    if (check > -1) return 1;
-    else return 0;
     
+    if (check > -1) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
+
 //
-fun int selectTimbre(int foo)
-{
-    
-    
-    [
-    [1, 5, 7, 11, 15, 17],[1, 5, 6],
-    [2, 6, 7, 12, 16, 17],[2, 5, 7],
-    [3, 5, 7, 13, 14, 17],[3, 5, 6], 
-    [4, 6, 7, 14, 16, 17],[4, 5, 7]
+fun int selectTimbre(int foo) {
+    [[1, 5, 7, 11, 15, 17],
+    [1, 5, 6],
+    [2, 6, 7, 12, 16, 17],
+    [2, 5, 7],
+    [3, 5, 7, 13, 14, 17],
+    [3, 5, 6], 
+    [4, 6, 7, 14, 16, 17],
+    [4, 5, 7]
     ] @=> int machineArray[][];
     
     int jack;
-    if ( myMachine == 1 ) 1 => jack;
-    if ( myMachine == 2 ) 3 => jack;
-    if ( myMachine == 3 ) 5 => jack;
-    if ( myMachine == 4 ) 7 => jack;
+    
+    if (myMachine == 1) {
+        1 => jack;
+    }
+    if (myMachine == 2) {
+        3 => jack;
+    }
+    if (myMachine == 3) {
+        5 => jack;
+    }
+    if (myMachine == 4) {
+        7 => jack;
+    }
     //<<< jack >>>;
     
     machineArray[jack] @=>  int TimbreRoute[];
     -1 => int check;
-    for (int i; i < TimbreRoute.cap(); i++)
+    
+    for (0 => int i; i < TimbreRoute.cap(); i++)
     {
         TimbreRoute[i] => int test;
         if (test == foo) 1 +=> check;
     }
-    if (check > -1) return 1;
-    else return 0;
     
+    if (check > -1) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
+
 ////
 
-fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){ 
+fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){{ 
     getKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
-    if(newvoice > -1) {        
+    
+    if (newvoice > -1) {        
         attktime => myenv[newvoice].duration;
         myenv[newvoice] => rKarp;
         pitches[pitch-24] => m[newvoice].freq;
-        Std.rand2f (0.2, 0.8) => m[newvoice].pickupPosition;
+        Std.rand2f(0.2, 0.8) => m[newvoice].pickupPosition;
         1 => myenv[newvoice].keyOn;
         pluck => m[newvoice].pluck; //<<< "att" >>>;
         len - decaytime => now;       
@@ -490,24 +593,27 @@ fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){
         0 => Karpvoices[newvoice];
     }
 }
+
 // 
 fun int getKarpFreeVoice() {        
-    for(0 => int i; i<numKarpvoices; i++){
-        if(Karpvoices[i] == 0) { 
+    for (0 => int i; i < numKarpvoices; i++){{
+        if (Karpvoices[i] == 0) { 
             1 => Karpvoices[i];
             return i; 
         }
     }
-    return -1; //return only if no voices free
+    return -1; // return only if no voices free
 }
+
 //
-fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){ 
+fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck){{ 
     getSweepKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
-    if(newvoice > -1) {        
+    
+    if (newvoice > -1) {        
         attktime => myenvsk[newvoice].duration;
         myenvsk[newvoice] => SweepkpOrk;
         pitches[pitch-24] => swm[newvoice].freq;
-        Std.rand2f (0.2, 0.8) => swm[newvoice].pickupPosition;
+        Std.rand2f(0.2, 0.8) => swm[newvoice].pickupPosition;
         1 => myenvsk[newvoice].keyOn;
         pluck => swm[newvoice].pluck; //<<< "att" >>>;
         len - decaytime => now;       
@@ -518,27 +624,27 @@ fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pl
         0 => SweepKarpvoices[newvoice];
     }
 }
-// 
+
 // 
 fun int getSweepKarpFreeVoice() {        
-    for(0 => int i; i<numSweepKarpvoices; i++){
-        if(SweepKarpvoices[i] == 0) { 
+    for(0 => int i; i < numSweepKarpvoices; i++) {
+        if{(SweepKarpvoices[i] == 0) { 
             1 => SweepKarpvoices[i];
             return i; 
         }
     }
-    return -1; //return only if no voices free
+    return -1; //{return only if no voices free
 }
+
 //
-fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime)
-{ 
-    getFreeSineVoice() => int newvoice; //<<< "sine" >>>;
-    if (newvoice > -1)
-    {
+fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime) { 
+    getFreeSineVoice() => int newvoice; // <<< "sine" >>>;
+    
+    if (newvoice > -1) {
         attktime => sineEnv[newvoice].duration;
         sineEnv[newvoice] => rSine;
-        note  => float freq;
-        Std.mtof( freq + 12 ) => s[newvoice].freq;
+        note => float freq;
+        Std.mtof(freq + 12) => s[newvoice].freq;
         0 => s[newvoice].phase;
         1 => sineEnv[newvoice].keyOn;
         len - decaytime => now;
@@ -548,14 +654,16 @@ fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime)
         sineEnv[newvoice] =< rSine;
         0 => SineVoice[newvoice];
     }
-}   
+}
+
 //
 fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
     getBloFreeVoice() => int newvoice; //<<<"blo" >>>;
+    
     if (newvoice > -1) { 
         attktime => env[newvoice].duration;
         env[newvoice] => rBlo;
-        note  => float freq;
+        note => float freq;
         Std.mtof( freq )=> bottle[newvoice].freq;
         0.019653 => bottle[newvoice].noiseGain;
         Std.rand2f(3.2, 4.4) => bottle[newvoice].vibratoFreq;
@@ -571,168 +679,144 @@ fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
         0 => Blovoices[newvoice];
     }
 }
-//
+
 // 
 fun int getBloFreeVoice() {        
-    for(0 => int i; i<numBlo; i++){
-        if(Blovoices[i] == 0) { 
+    for (0 => int i; i < numBlo; i++){
+        if (Blovoices[i] == 0) { 
             1 => Blovoices[i];
             return i; 
         }
     }
-    return -1; //return only if no voices free
+    return -1; //{return only if no voices free
 }
+
 //
-//
-fun int getFreeSineVoice()
-{
-    for (int i; i<NumSineVoices; i++ )
-    { 
-        if (SineVoice[i] == 0)
-        {
+fun int getFreeSineVoice() {
+    for (0 => int i; i < NumSineVoices; i++) {
+        if (SineVoice[i] == 0) {
             1 => SineVoice[i];
             return i;
         }
     }
-    return -1; //if no voice is free
+    return -1; // if no voice is free
 }
+
 //
-fun void getRhythm()
-{ //<<< "hi" >>>;
-    while( true )
-    {
+fun void getRhythm() { //<<< "hi" >>>;
+    while (true) {
         msg4 => now;
         
-        while (msg4.nextMsg() != 0 )
-        {
+        while (msg4.nextMsg() != 0) {
             msg4.getInt() => int station;
             msg4.getInt() => int control;
             
-            if (selectRhythm(station) == 1 && control == 5)
-            {
+            if (selectRhythm(station) == 1 && control == 5) {
                 0 => taleaIndex;//taleaIndex is reset to 0 if everyone is sent a parameter change
                 rhythmControl(control);
             }
-                
-            else if (selectRhythm(station) == 1) 
-            {
+            else if (selectRhythm(station) == 1) {
                 rhythmControl(control);
-                        
             }
-               
-           
         }
     }
 }
+
 //
-//
-fun void getTimbre()
-{ //<<< "hi" >>>;
-    while( true )
-    {
+fun void getTimbre() { //<<< "hi" >>>;
+    while (true) {
         msg3 => now;
         
-        while (msg3.nextMsg() != 0 )
-        {
+        while (msg3.nextMsg() != 0) {
             msg3.getInt() => int station;
             msg3.getInt() => int control;
             //<<< station, control >>>;
-           if (selectTimbre(station) == 1 && station == 6) 
-           {
-             timbreControl(station);
-         }
-         else if (selectTimbre(station) == 1 && station == 7) 
-         {
-             timbreControl(station);
-         }
-         else if (selectTimbre(station) == 1) 
-            {
+            
+            if (selectTimbre(station) == 1 && station == 6) {
+                timbreControl(station);
+            }
+            else if (selectTimbre(station) == 1 && station == 7) {
+                timbreControl(station);
+            }
+            else if (selectTimbre(station) == 1) {
                 timbreControl(control);
                 //<<< "yes" >>>;
             }
             
-            
         }
     }
 }
+
 //
-//
-fun void timbreControl(int x)
-{  
-if (x >= 6 && x <= 8) Std.rand2(0,3) => timbre;
-else if (x >=10 && x <= 14) x - 11 => timbre;
-<<< timbre >>>;
+fun void timbreControl(int x) {
+    if (x >= 6 && x <= 8) {
+        Std.rand2(0,3) => timbre;
+    }
+    else if (x >=10 && x <= 14) {
+        x - 11 => timbre;
+    }
+    <<< timbre >>>;
 }
 
-
 //
-fun void rhythmControl(int x)
-{
-    if (x > 5 && x < 11)
-    {
+fun void rhythmControl(int x) {
+    if (x > 5 && x < 11) {
         x - 6 => DelayIndex;
         <<< "My delay is:", DelayArray[DelayIndex], "of pulse." >>>;
     }
-    else if (x > 10 && x < 16)
-    {
+    else if (x > 10 && x < 16) {
         x - 11 => taleaIndex;
         <<< "My talea index is:", taleaIndex >>>;
     }
-    
-    else if (x > 15 && x < 21)
-    {
+    else if (x > 15 && x < 21) {
         x - 16 => TempoIndex;
-    <<< "My tempo index is:", TempoIndex >>>;
+        <<< "My tempo index is:", TempoIndex >>>;
+    }
 }
 
-}
-    
-    
-          
 //
-fun void getTexture()
-{ //<<< "listener is here" >>>;
-    while( true )
-    {
+fun void getTexture() {
+    //<<< "listener is here" >>>;
+    
+    while (true) {
         msg2 => now; timeMe.signal();
-        while (msg2.nextMsg() != 0 )
-        {
-            msg2.getInt() => int station; <<< station >>>;
+
+        while (msg2.nextMsg() != 0) {
+            msg2.getInt() => int station; 
+            <<< station >>>;
+            
             msg2.getInt() => int reps;
             msg2.getInt() => fadeValueIndex;
+            
             //patch to stations
-            if (selectTexture(station) == 1) 
-            {
+            if (selectTexture(station) == 1) {
                 <<< "My reps:", reps, "my Fade:", fadeValues[fadeValueIndex], "::ms" >>>;
                 fadeUp(fadeValues[fadeValueIndex]::ms);
             }
-            else if (selectTexture(station) == 0 && station <= 18) 
-            {
+            else if (selectTexture(station) == 0 && station <= 18) {
                 <<< "Not me this time, but reps =", reps >>>;
                 fadeOut(fadeValues[fadeValueIndex]::ms);
             }
+            
             //choose mode   
-            if (station < 10 && selectTexture(station) == 1)
-            {
+            if (station < 10 && selectTexture(station) == 1) {
                 <<< "Unison" >>>;
                 spork ~ waitForUnison(e, reps);
             }
-            else if (station > 10 && selectTexture(station) == 1)
-            {
+            else if (station > 10 && selectTexture(station) == 1) {
                 <<< "Poly" >>>;
                 spork ~ waitForPoly(e,reps);
             }
         } 
     }
 }
+
 //
-fun void Pulse_listener()
-{
-    while( true )
-    {
+fun void Pulse_listener() {
+    while (true) {
         msg1 => now;
-        while (msg1.nextMsg() != 0 )
-        {
+        
+        while (msg1.nextMsg() != 0) {
             msg1.getInt() => int Beat;
             e.broadcast();
             //<<< Beat >>>;
@@ -741,82 +825,82 @@ fun void Pulse_listener()
 }
 
 
-fun void getColor()
-{ //<<< "color is here" >>>;
-    while( true )
-    {
+fun void getColor() { //<<< "color is here" >>>;
+    while(true) {
         msg5 => now;
    
-        while (msg5.nextMsg() != 0)
-        {
+        while (msg5.nextMsg() != 0) {
             msg5.getInt() => colorIndex;
             <<< "My ColorIndex is:", colorIndex >>>;
         }
     }
 }
+
 //
-
-fun void fadeUp(dur fadeTime)
-{   
-    fadeTime/2::ms => float n;
-    0.9/n => float d;
-
+fun void fadeUp (dur fadeTime) {   
+    fadeTime / 2::ms => float n;
+    0.9 / n => float d;
     
-    while (Main < 0.9)
-{
-    for (int i; i< 50; i++)
-    {
-        d +=> Main => Main;
-        Main => MainOut.gain;
-        2::ms => now;
-       
+    while (Main < 0.9) {
+        for (int i; i< 50; i++) {
+            d +=> Main => Main;
+            Main => MainOut.gain;
+            2::ms => now;
+        }
     }
-}
-}
-//
-fun void fadeOut(dur fadeTime)
-{   
-    fadeTime/2::ms => float n;
-    0.9/n => float d;
-    while (Main > 0.)
-    {
-        for (int i; i< 50; i++)
-            {
-                Main - d => Main;
-                Main => MainOut.gain;
-                2::ms => now;
-            }
-     }
- }
-//
-//
-fun void sweep(){ float t;
-while( true )
-{
-    // sweep the cutoff
-    Math.sin(t) * 110 => Std.fabs => Std.mtof => f.freq;
-    // increment t
-    .005 +=> t;
-    // advance time
-    5::ms => now;
-}
-}    
-//
-//
-fun void timer(Event timeMe)
-{  
-    while( true)
-    {   int count; int secondCount;
-    -1 => int minuteCount;
-    timeMe => now;
-    while(true)
-    {
-        
-        if (count%60 == 0) minuteCount++;
-        if (count%12 == 0) <<<minuteCount, ":", secondCount>>>; 
-        count++; secondCount++; if (secondCount == 60) 0 => secondCount;
-        1::tick => now;
-    }
-}
 }
 
+//
+fun void fadeOut(dur fadeTime) {   
+    fadeTime / 2::ms => float n;
+    0.9 / n => float d;
+    
+    while (Main > 0.0) {
+        for (0 => int i; i < 50; i++) {
+            Main - d => Main;
+            Main => MainOut.gain;
+            2::ms => now;
+        }
+    }
+}
+
+//
+fun void sweep() {
+    float t;
+    
+    while (true) {
+        // sweep the cutoff
+        Math.sin(t) * 110 => Std.fabs => Std.mtof => f.freq; // no parentheses on functions - broken?
+        // increment t
+        0.005 +=> t;
+        // advance time
+        5::ms => now;
+    }
+}    
+
+//
+fun void timer(Event timeMe) {  
+    while (true) {
+        int count;
+        int secondCount;
+        -1 => int minuteCount;
+        timeMe => now;
+        
+        while (true) {
+            if (count % 60 == 0) {
+                minuteCount++;
+            }
+            if (count % 12 == 0) {
+                <<< minuteCount, ":", secondCount >>>;
+            }
+            count++; 
+            secondCount++; 
+            
+            if (secondCount == 60) {
+                0 => secondCount;
+            }
+            
+            1::tick => now;
+        }
+    }
+}
