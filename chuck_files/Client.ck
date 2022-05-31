@@ -112,7 +112,6 @@ int fadeValueIndex;
 
 Event finished;
 Event e;
-Event timeMe;
 
 
 int colorIndex;
@@ -356,7 +355,7 @@ spork ~ getTexture();
 spork ~ getTimbre();
 spork ~ getColor();
 spork ~ sweep();
-spork ~ timer(timeMe);
+spork ~ timer();
 
 //Main loop
 
@@ -615,7 +614,7 @@ fun int getKarpFreeVoice() {
 
 //
 fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) { 
-    getSweepKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
+    getFreeVoice(SweepKarpvoices) => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
         attktime => myenvsk[newvoice].duration;
@@ -635,7 +634,7 @@ fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pl
 
 //
 fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime) { 
-    getFreeSineVoice() => int newvoice; // <<< "sine" >>>;
+    getFreeVoice(SineVoice) => int newvoice; // <<< "sine" >>>;
     
     if (newvoice > -1) {
         attktime => sineEnv[newvoice].duration;
@@ -655,7 +654,7 @@ fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime) {
 
 //
 fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
-    getBloFreeVoice() => int newvoice; //<<<"blo" >>>;
+    getFreeVoice(Blovoices) => int newvoice; //<<<"blo" >>>;
     
     if (newvoice > -1) { 
         attktime => env[newvoice].duration;
@@ -677,37 +676,15 @@ fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
     }
 }
 
-// 
-fun int getBloFreeVoice() {        
-    for (0 => int i; i < numBlo; i++){
-        if (Blovoices[i] == 0) { 
-            1 => Blovoices[i];
+// Find the index of a free voice in a ugen array using in auxiliary 'voices' array
+fun int getFreeVoice(int[] voices) { 
+    for (0 => int i; i < voices.cap(); i++) {
+        if (voices[i] == 0) { 
+            1 => voices[i];
             return i; 
         }
     }
-    return -1; //{return only if no voices free
-}
-
-//
-fun int getFreeSineVoice() {
-    for (0 => int i; i < NumSineVoices; i++) {
-        if (SineVoice[i] == 0) {
-            1 => SineVoice[i];
-            return i;
-        }
-    }
-    return -1; // if no voice is free
-}
-
-// 
-fun int getSweepKarpFreeVoice() {        
-    for(0 => int i; i < numSweepKarpvoices; i++) {
-        if (SweepKarpvoices[i] == 0) { 
-            1 => SweepKarpvoices[i];
-            return i; 
-        }
-    }
-    return -1; //{return only if no voices free
+    return -1;
 }
 
 //
@@ -788,7 +765,6 @@ fun void getTexture() {
     
     while (true) {
         msg2 => now; 
-        timeMe.signal();
 
         while (msg2.nextMsg() != 0) {
             msg2.getInt() => int station; 
@@ -835,7 +811,7 @@ fun void Pulse_listener() {
 
 
 fun void getColor() { //<<< "color is here" >>>;
-    while(true) {
+    while (true) {
         msg5 => now;
    
         while (msg5.nextMsg() != 0) {
@@ -845,13 +821,16 @@ fun void getColor() { //<<< "color is here" >>>;
     }
 }
 
-//
+//----------------------------------------------------------------------
+// TODO what do these do?
+// Result of dividing two durations and chucking to float?
+
 fun void fadeUp (dur fadeTime) {   
     fadeTime / 2::ms => float n;
     0.9 / n => float d;
     
     while (Main < 0.9) {
-        for (int i; i< 50; i++) {
+        for (int i; i < 50; i++) {
             d +=> Main => Main;
             Main => MainOut.gain;
             2::ms => now;
@@ -859,7 +838,6 @@ fun void fadeUp (dur fadeTime) {
     }
 }
 
-//
 fun void fadeOut(dur fadeTime) {   
     fadeTime / 2::ms => float n;
     0.9 / n => float d;
@@ -872,8 +850,9 @@ fun void fadeOut(dur fadeTime) {
         }
     }
 }
+//----------------------------------------------------------------------
 
-//
+// TODO what is 't'? logic behind calculation of f.freq?
 fun void sweep() {
     float t;
     
