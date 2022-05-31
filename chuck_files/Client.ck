@@ -99,20 +99,22 @@ else {
     <<< "My machine is number:", myMachine >>>;
 }
 
+
 // TODO refactor floats as fractions?
 [0.5, 1.0, 1.5, 0.16666666667, 0.33333333] @=> float Tempo[];
-
 int TempoIndex;
+Tempo[TempoIndex]::second => dur T;
+
 
 [50, 300, 1000, 2000, 5000] @=> int fadeValues[];
-
 int fadeValueIndex;
+
 
 Event finished;
 Event e;
 Event timeMe;
-Tempo[TempoIndex]::second => dur T;
-1::second => dur tick;
+
+
 int colorIndex;
 int durationIndex;
 int taleaIndex;
@@ -631,17 +633,6 @@ fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pl
     }
 }
 
-// 
-fun int getSweepKarpFreeVoice() {        
-    for(0 => int i; i < numSweepKarpvoices; i++) {
-        if (SweepKarpvoices[i] == 0) { 
-            1 => SweepKarpvoices[i];
-            return i; 
-        }
-    }
-    return -1; //{return only if no voices free
-}
-
 //
 fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime) { 
     getFreeSineVoice() => int newvoice; // <<< "sine" >>>;
@@ -706,6 +697,17 @@ fun int getFreeSineVoice() {
         }
     }
     return -1; // if no voice is free
+}
+
+// 
+fun int getSweepKarpFreeVoice() {        
+    for(0 => int i; i < numSweepKarpvoices; i++) {
+        if (SweepKarpvoices[i] == 0) { 
+            1 => SweepKarpvoices[i];
+            return i; 
+        }
+    }
+    return -1; //{return only if no voices free
 }
 
 //
@@ -785,7 +787,8 @@ fun void getTexture() {
     //<<< "listener is here" >>>;
     
     while (true) {
-        msg2 => now; timeMe.signal();
+        msg2 => now; 
+        timeMe.signal();
 
         while (msg2.nextMsg() != 0) {
             msg2.getInt() => int station; 
@@ -884,29 +887,27 @@ fun void sweep() {
     }
 }    
 
-//
-fun void timer(Event timeMe) {  
+// prints the elapsed time of the piece every 12 seconds
+fun void timer() {  
     while (true) {
-        int count;
-        int secondCount;
-        -1 => int minuteCount;
-        timeMe => now;
+        0 => int count;
+        0 => int seconds;
+        0 => int minutes;
         
         while (true) {
-            if (count % 60 == 0) {
-                minuteCount++;
+            if (count != 0 && count % 60 == 0) {
+                minutes++;
             }
             if (count % 12 == 0) {
-                <<< minuteCount, ":", secondCount >>>;
+                <<< minutes, ":", seconds >>>;
             }
             count++; 
-            secondCount++; 
+            seconds++; 
             
-            if (secondCount == 60) {
-                0 => secondCount;
+            if (seconds == 60) {
+                0 => seconds;
             }
-            
-            1::tick => now;
+            second => now;
         }
     }
 }
