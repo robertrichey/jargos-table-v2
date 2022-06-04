@@ -237,17 +237,17 @@ int pitchindex;
 10 => int numKarpvoices;
 int Karpvoices[numKarpvoices]; // an array to keep up with voices used
 StifKarp m[numKarpvoices]; // TODO variable name
-BPF filter[numKarpvoices];
+BPF pluckFilter[numKarpvoices];
 Envelope myenv[numKarpvoices];
 JCRev rKarp; 0.05 => rKarp.mix; rKarp => MainOut;
 
 //
 for (0 => int i; i < numKarpvoices; i++) {
-    m[i] => filter[i] => myenv[i]; 
-    1.0 => filter[i].gain;
+    m[i] => pluckFilter[i] => myenv[i]; 
+    1.0 => pluckFilter[i].gain;
     0.6  => m[i].pickupPosition;// these effect tuning; so, set once 
     1.0  => m[i].sustain => m[i].stretch => m[i].baseLoopGain;   
-    (Std.rand2f(68.0, 80.0), 1.0) => filter[i].set; // TODO check parentheses - is this broken?
+    (Std.rand2f(68.0, 80.0), 1.0) => pluckFilter[i].set; // TODO check parentheses - is this broken?
     0 => Karpvoices[i]; // all voices free
 }
 
@@ -255,42 +255,42 @@ for (0 => int i; i < numKarpvoices; i++) {
 10 => int numSweepKarpvoices;
 int SweepKarpvoices[numSweepKarpvoices]; // an array to keep up with voices used
 StifKarp swm[numSweepKarpvoices];
-BPF filtersk[numSweepKarpvoices];
+BPF sweepFilter[numSweepKarpvoices];
 Envelope myenvsk[numSweepKarpvoices];
 
 //
 for (0 => int i; i < numSweepKarpvoices; i++){
-    swm[i] => filtersk[i] => myenvsk[i]; 
-    2.0 => filtersk[i].gain;
+    swm[i] => sweepFilter[i] => myenvsk[i]; 
+    2.0 => sweepFilter[i].gain;
     0.6  => swm[i].pickupPosition; // these effect tuning; so, set once 
     1.0  => swm[i].sustain => swm[i].stretch => swm[i].baseLoopGain;   
-    (Std.rand2f(68.0, 80.0), 1.0) => filtersk[i].set;    
+    (Std.rand2f(68.0, 80.0), 1.0) => sweepFilter[i].set;    
     0 => SweepKarpvoices[i]; //all voices free
 }
 
-//
+// TODO what is the use of gn[0]?
 Gain gn[2];
 Gain SweepkpOrk => gn[0];
-gn[0] => DelayL del => HPF f => Dyno comp => MainOut;
+gn[0] => DelayL del => HPF highPass => Dyno comp => MainOut;
 del => gn[1] => del;
 
 // set parameters
 10::ms => del.delay;
 0.15 => gn[0].gain;
 0.99 => gn[1].gain;
-3 => f.Q;
+3 => highPass.Q;
 comp.compress();
 
 //
 10 => int numBlo;
 int Blovoices[numBlo];
 BlowBotl bottle[numBlo]; 
-ResonZ res[numBlo];
+ResonZ resonator[numBlo];
 Envelope env[numBlo];
 
 for (0 => int i; i < numBlo; i++){ 
     bottle[i] => res[i] => env[i];
-    res[i].set(Std.rand2f(315.0, 325.0), Std.rand2f(0.35, 0.6));
+    resonator[i].set(Std.rand2f(315.0, 325.0), Std.rand2f(0.35, 0.6));
     0 => Blovoices[i]; //reset voices to get
 }
 
