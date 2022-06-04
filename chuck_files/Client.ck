@@ -146,6 +146,7 @@ float Main => MainOut.gain;
 //-----------------------------------------------------------------------------------------------
 
 // Karp OrK tunings
+// TODO what is the point of these? just intonation?
 32.7 => float c1; //24
 34.64 => float csh1; //25
 36.7 => float d1; //26
@@ -583,7 +584,7 @@ fun int selectTimbre(int foo) {
 ////
 
 fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) {
-    getKarpFreeVoice() => int newvoice; //<<< newvoice >>>;
+    getFreeVoice(Karpvoices) => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
         attktime => myenv[newvoice].duration;
@@ -599,17 +600,6 @@ fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) 
         myenv[newvoice] =< rKarp;
         0 => Karpvoices[newvoice];
     }
-}
-
-// 
-fun int getKarpFreeVoice() {        
-    for (0 => int i; i < numKarpvoices; i++) {
-        if (Karpvoices[i] == 0) { 
-            1 => Karpvoices[i];
-            return i; 
-        }
-    }
-    return -1; // return only if no voices free
 }
 
 //
