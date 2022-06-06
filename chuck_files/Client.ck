@@ -110,8 +110,8 @@ Tempo[TempoIndex]::second => dur T;
 int fadeValueIndex;
 
 
-Event finished;
-Event e;
+Event finished; // TODO not used anywhere. Remove?
+Event globalEvent; // TODO needs a better name
 
 
 int colorIndex;
@@ -132,17 +132,15 @@ for (0 => int i; i < 4; i++) {
     recv[i].listen();
 }
 
-recv[0].event("/Pulse, i") @=> OscEvent msg1;
-recv[0].event("/instrumentRhythm, i i i") @=> OscEvent msg2;//station
-//
-recv[1].event("/Timbre, i i") @=> OscEvent msg3;
-//
-recv[2].event("/Rhythm, i i") @=> OscEvent msg4;
-//
-recv[3].event("/Color, i") @=> OscEvent msg5;
+// TODO why does recv[0] has two .event operations?
+recv[0].event("/Pulse, i") @=> OscEvent pulseEvent;
+recv[0].event("/instrumentRhythm, i i i") @=> OscEvent instrumentRhythmEvent;//station
+recv[1].event("/Timbre, i i") @=> OscEvent timbreEvent;
+recv[2].event("/Rhythm, i i") @=> OscEvent rhythmEvent;
+recv[3].event("/Color, i") @=> OscEvent colorEvent;
 
 Gain MainOut => dac;
-float Main => MainOut.gain; // TODO initialization of Main?
+float Main => MainOut.gain; // TODO initialization of Main? Only used for fadeUp() and fadedDown() - might be able to ditch it
 <<< Main >>>;
 //-----------------------------------------------------------------------------------------------
 
@@ -260,16 +258,17 @@ StifKarp swm[numSweepKarpvoices];
 BPF sweepFilter[numSweepKarpvoices];
 Envelope myenvsk[numSweepKarpvoices];
 
-// TODO what is the purpose of gn[0]?
-Gain gn[2];
-Gain SweepkpOrk => gn[0];
-gn[0] => DelayL del => HPF highPass => Dyno comp => MainOut;
-del => gn[1] => del;
+// TODO what is the purpose of Gain dry?
+Gain dry;
+Gain wet;
+Gain SweepkpOrk => dry;
+dry => DelayL del => HPF highPass => Dyno comp => MainOut;
+del => wet => del;
 
 // set parameters
 10::ms => del.delay;
-0.15 => gn[0].gain;
-0.99 => gn[1].gain;
+0.15 => dry.gain;
+0.99 => wet.gain;
 3 => highPass.Q;
 comp.compress();
 
@@ -368,11 +367,11 @@ spork ~ timer();
 //
 fun void Pulse_listener() {
     while (true) {
-        msg1 => now;
+        pulseEvent => now;
         
-        while (msg1.nextMsg() != 0) {
-            msg1.getInt() => int Beat;
-            e.broadcast();
+        while (pulseEvent.nextMsg() != 0) {
+            pulseEvent.getInt() => int Beat;
+            globalEvent.broadcast();
             //<<< Beat >>>;
         }
     }
@@ -381,11 +380,11 @@ fun void Pulse_listener() {
 //
 fun void getRhythm() { //<<< "hi" >>>;
     while (true) {
-        msg4 => now;
+        rhythmEvent => now;
         
-        while (msg4.nextMsg() != 0) {
-            msg4.getInt() => int station;
-            msg4.getInt() => int control;
+        while (rhythmEvent.nextMsg() != 0) {
+            rhythmEvent.getInt() => int station;
+            rhythmEvent.getInt() => int control;
             
             if (selectRhythm(station) == 1 && control == 5) {
                 0 => taleaIndex;//taleaIndex is reset to 0 if everyone is sent a parameter change
@@ -463,11 +462,11 @@ fun void rhythmControl(int x) {
 //
 fun void getTimbre() { //<<< "hi" >>>;
     while (true) {
-        msg3 => now;
+        timbreEvent => now;
         
-        while (msg3.nextMsg() != 0) {
-            msg3.getInt() => int station;
-            msg3.getInt() => int control;
+        while (timbreEvent.nextMsg() != 0) {
+            timbreEvent.getInt() => int station;
+            timbreEvent.getInt() => int control;
             //<<< station, control >>>;
             
             if (selectTimbre(station) == 1 && station == 6) {
@@ -547,14 +546,14 @@ fun void getTexture() {
     //<<< "listener is here" >>>;
     
     while (true) {
-        msg2 => now; 
+        instrumentRhythmEvent => now; 
         
-        while (msg2.nextMsg() != 0) {
-            msg2.getInt() => int station; 
+        while (instrumentRhythmEvent.nextMsg() != 0) {
+            instrumentRhythmEvent.getInt() => int station; 
             <<< station >>>;
             
-            msg2.getInt() => int reps;
-            msg2.getInt() => fadeValueIndex;
+            instrumentRhythmEvent.getInt() => int reps;
+            instrumentRhythmEvent.getInt() => fadeValueIndex;
             
             //patch to stations
             if (selectTexture(station) == 1) {
@@ -569,11 +568,11 @@ fun void getTexture() {
             //choose mode   
             if (station < 10 && selectTexture(station) == 1) {
                 <<< "Unison" >>>;
-                spork ~ waitForUnison(e, reps);
+                spork ~ waitForUnison(globalEvent, reps);
             }
             else if (station > 10 && selectTexture(station) == 1) {
                 <<< "Poly" >>>;
-                spork ~ waitForPoly(e,reps);
+                spork ~ waitForPoly(globalEvent, reps);
             }
         } 
     }
@@ -826,10 +825,10 @@ fun void fadeOut(dur fadeTime) {
 //
 fun void getColor() { //<<< "color is here" >>>;
     while (true) {
-        msg5 => now;
+        colorEvent => now;
         
-        while (msg5.nextMsg() != 0) {
-            msg5.getInt() => colorIndex;
+        while (colorEvent.nextMsg() != 0) {
+            colorEvent.getInt() => colorIndex;
             <<< "My ColorIndex is:", colorIndex >>>;
         }
     }
