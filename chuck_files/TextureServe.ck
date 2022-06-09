@@ -145,7 +145,7 @@ int key[256];
 47 => key[46];//=
 48 => key[44]; //space
 //
-spork ~send_Pulse();//spork PULSE FOR SYNC
+spork ~sendPulse(); // spork PULSE FOR SYNC TODO
 //
 while( true )
 {
@@ -171,23 +171,18 @@ fun void send_ControlSignal(int station)
    
  
    }
+   
 //
 //multicasts name of this machine to all on LAN
-fun void send_Pulse()
-{
-    1 => int beatNum;  
-    while(true)
-    {
-        
-        xmit.startMsg(  "/Pulse", "i" );
-        beatNum => xmit.addInt;
-        beatNum++;
-        if(beatNum > 8) 1 => beatNum;
-        250::ms => now;
-        
-        
+fun void sendPulse() {
+    0 => int beatNumber;
+      
+    while (true) {
+        xmit.startMsg("/pulse", "i");
+        (beatNumber % 8) + 1 => xmit.addInt;
+        beatNumber++;
+        250::ms => now;   
     }
-    
 } 
 //
 //

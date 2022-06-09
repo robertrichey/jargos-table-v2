@@ -83,7 +83,7 @@ U.S.A.
 
 // TODO comments and casing for below globals --------------------------------------------------
 //
-0.9 => dac.gain; //adjust manually
+0.9 => dac.gain; //adjust manually - TODO why?
 
 int myMachine;
 
@@ -132,8 +132,8 @@ for (0 => int i; i < 4; i++) {
     recv[i].listen();
 }
 
-// TODO why does recv[0] has two .event operations?
-recv[0].event("/Pulse, i") @=> OscEvent pulseEvent;
+// TODO why does recv[0] have two .event operations?
+recv[0].event("/pulse, i") @=> OscEvent pulseEvent;
 recv[0].event("/instrumentRhythm, i i i") @=> OscEvent instrumentRhythmEvent;//station
 recv[1].event("/Timbre, i i") @=> OscEvent timbreEvent;
 recv[2].event("/Rhythm, i i") @=> OscEvent rhythmEvent;
@@ -351,7 +351,7 @@ for (0 => int i; i < NumSineVoices; i++) {
 [0.0, 0.25, 0.5, 1.0, 2.0] @=> float DelayArray[];
 
 // spork independent threads
-spork ~ Pulse_listener();
+spork ~ pulseListener();
 spork ~ getRhythm();
 spork ~ getTexture();
 spork ~ getTimbre();
@@ -364,13 +364,14 @@ spork ~ timer();
 
 //------------------------------------------------------------------------
 
-//
-fun void Pulse_listener() {
+// Repeatedly receives counts 1-8 from TextureServe.ck 
+// TODO intention vs timer? Is it functional? See sendPulse() in TextureServe.ck
+fun void pulseListener() {
     while (true) {
         pulseEvent => now;
         
         while (pulseEvent.nextMsg() != 0) {
-            pulseEvent.getInt() => int Beat;
+            pulseEvent.getInt() => int beatCount;
             globalEvent.broadcast();
             //<<< Beat >>>;
         }
@@ -625,39 +626,6 @@ fun int selectTexture(int foo) {
 }
 
 //
-fun void waitForPoly(Event e, int reps) { 
-    Event off;
-    e => now;
-    //<<< "wait" >>>;
-    
-    for (0 => int i; i < reps; i++) {
-        Tempo[TempoIndex]::second => dur T;
-        Color[colorIndex] @=> int seq1[];
-        ringTime[durationIndex] @=> float ringSeq[]; 
-        Talea[taleaIndex] @=> float taleaSeq[];
-        seq1[Std.rand2(0,seq1.cap()-1)] => int note;
-        ringSeq[Std.rand2(0,ringSeq.cap()-1)]::T => dur len;
-        
-        if (timbre == 0) {
-            spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
-        }
-        else if (timbre == 1) {
-            spork ~ playBlo(note, len, 8::ms, 10::ms);
-        }
-        else if (timbre == 2) {
-            spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.6, 0.99)); 
-        }
-        else if (timbre == 3) {
-            spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
-        }
-        0.5::T => now; // a periodic groove
-    } 
-    off.signal();
-    // <<< "done" >>>;
-    off => now;
-}
-
-//
 fun void waitForUnison(Event e, int reps) {
     Event off;
     e => now;
@@ -689,6 +657,39 @@ fun void waitForUnison(Event e, int reps) {
             spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
         }
         taleaSeq[i % taleaSeq.cap()]::T => now; 
+    } 
+    off.signal();
+    // <<< "done" >>>;
+    off => now;
+}
+
+//
+fun void waitForPoly(Event e, int reps) { 
+    Event off;
+    e => now;
+    //<<< "wait" >>>;
+    
+    for (0 => int i; i < reps; i++) {
+        Tempo[TempoIndex]::second => dur T;
+        Color[colorIndex] @=> int seq1[];
+        ringTime[durationIndex] @=> float ringSeq[]; 
+        Talea[taleaIndex] @=> float taleaSeq[];
+        seq1[Std.rand2(0,seq1.cap()-1)] => int note;
+        ringSeq[Std.rand2(0,ringSeq.cap()-1)]::T => dur len;
+        
+        if (timbre == 0) {
+            spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
+        }
+        else if (timbre == 1) {
+            spork ~ playBlo(note, len, 8::ms, 10::ms);
+        }
+        else if (timbre == 2) {
+            spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.6, 0.99)); 
+        }
+        else if (timbre == 3) {
+            spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
+        }
+        0.5::T => now; // a periodic groove
     } 
     off.signal();
     // <<< "done" >>>;
