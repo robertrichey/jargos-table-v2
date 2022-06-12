@@ -84,18 +84,33 @@
 //
 
 
-//
-Event finished; Event e; .5::second => dur T; 
-Hid KBhi; HidMsg kbmsg; int fadeValue;
-0 => int kbdevice;
-if( me.args() ) me.arg(0) => Std.atoi => kbdevice;
-if( !KBhi.openKeyboard( kbdevice ) ) me.exit(); 
-//
+// TODO these are unused in the script. Remove?
+Event finished; 
+Event e; 
+0.5::second => dur T; 
+//---------------------------------------------
+
+Hid inputDevice; 
+HidMsg inputMessage;
+int fadeValue;
+0 => int keyboard;
+
+// TODO arg should be 1? Could depend on machine
+if (me.args()) { 
+    Std.atoi(me.arg(0)) => keyboard;
+}
+
+if (!inputDevice.openKeyboard(keyboard)) {
+    me.exit(); 
+}
+
 // NETWORK PARAMETERS
 OscSend xmit;
-xmit.setHost( "224.0.0.1", 5501 );		
+xmit.setHost("224.0.0.1", 5501);
+
 // key map
 int key[256];
+
 1 => key[29];//z
 2 => key[27];//x
 3 => key[6];//c
@@ -145,35 +160,39 @@ int key[256];
 47 => key[46];//=
 48 => key[44]; //space
 //
-spork ~sendPulse(); // spork PULSE FOR SYNC TODO
+spork ~ sendPulse(); // spork PULSE FOR SYNC TODO
+
 //
-while( true )
-{
-    KBhi => now;
-    while( KBhi.recv( kbmsg ) )
-    {   if( kbmsg.which > 256 ) continue;
-        if( kbmsg.isButtonDown() )
-        {   //<<< key[kbmsg.which] >>>;
-            if (key[kbmsg.which] > 0 && key[kbmsg.which] < 27) send_ControlSignal(key[kbmsg.which]);
+while (true) {
+    inputDevice => now;
+    
+    while (inputDevice.recv(inputMessage)) {
+        if (inputMessage.which > 256) {
+            continue;
+        }
+        if (inputMessage.isButtonDown()) {
+            //<<< key[inputMessage.which] >>>;
+            if (key[inputMessage.which] > 0 && key[inputMessage.which] < 27) {
+                <<< key[inputMessage.which] >>>;
+                sendControlSignal(key[inputMessage.which]);
+            }
         }
     }
 }
+
 //
-fun void send_ControlSignal(int station)
-{   
+fun void sendControlSignal(int station) {   
     getfadeValue(station) => fadeValue;
-    getReps() => int foo;
-    xmit.startMsg( "/instrumentRhythm", "i i i" );
+    
+    xmit.startMsg("/instrumentRhythm", "i i i");
     station => xmit.addInt;
-    foo => xmit.addInt;
+    getReps() => xmit.addInt;
     fadeValue => xmit.addInt;
     //<<< fadeValue >>>;
-   
- 
-   }
-   
-//
-//multicasts name of this machine to all on LAN
+}
+
+// multicasts name of this machine to all on LAN
+// TODO seems to send beat number 1-8.
 fun void sendPulse() {
     0 => int beatNumber;
       
@@ -184,22 +203,19 @@ fun void sendPulse() {
         250::ms => now;   
     }
 } 
+
 //
-//
-fun int getReps()
-{
-    Std.rand2( 3, 23 ) => int foo;
-    return foo;
+fun int getReps() {
+    return Std.rand2(3, 23);
 }
+
 //
-fun int getfadeValue(int x)
-{
-    if (x >= 22 && x <= 26)
-    { 
-        x - 22 => int y;
-        return y;
+fun int getfadeValue(int station) {
+    if (station >= 22 && station <= 26) { 
+        return station - 22;
     }
-        else return fadeValue;
-    
+    else {
+        return fadeValue;
+    }
 }
    

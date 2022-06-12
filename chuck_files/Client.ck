@@ -101,13 +101,9 @@ else {
 
 
 // TODO refactor floats as fractions?
-[0.5, 1.0, 1.5, 0.16666666667, 0.33333333] @=> float Tempo[];
-int TempoIndex;
-Tempo[TempoIndex]::second => dur T;
-
-
-[50, 300, 1000, 2000, 5000] @=> int fadeValues[];
-int fadeValueIndex;
+[0.5, 1.0, 1.5, 0.16666666667, 0.33333333] @=> float tempo[];
+int tempoIndex;
+tempo[tempoIndex]::second => dur T;
 
 
 Event finished; // TODO not used anywhere. Remove?
@@ -335,7 +331,7 @@ for (0 => int i; i < NumSineVoices; i++) {
 [53, 64, 65, 71, 72, 44],//18
 [68, 71, 72, 74, 79],//19
 [45, 52, 53, 55, 64, 69, 72, 74]//20
-] @=> int Color[][];
+] @=> int color[][];
 
 [[0.125, 0.25, 0.5, 1.0, 2.0, 4.0], 
 [1.0, 2.0, 3.0, 4.0, 4.0]
@@ -455,8 +451,8 @@ fun void rhythmControl(int x) {
         <<< "My talea index is:", taleaIndex >>>;
     }
     else if (x > 15 && x < 21) {
-        x - 16 => TempoIndex;
-        <<< "My tempo index is:", TempoIndex >>>;
+        x - 16 => tempoIndex;
+        <<< "My tempo index is:", tempoIndex >>>;
     }
 }
 
@@ -544,6 +540,8 @@ fun void timbreControl(int x) {
 
 //
 fun void getTexture() {
+    [50, 300, 1000, 2000, 5000] @=> int fadeValues[];
+    int index;
     //<<< "listener is here" >>>;
     
     while (true) {
@@ -554,19 +552,20 @@ fun void getTexture() {
             <<< station >>>;
             
             instrumentRhythmEvent.getInt() => int reps;
-            instrumentRhythmEvent.getInt() => fadeValueIndex;
+            instrumentRhythmEvent.getInt() => index;
             
-            //patch to stations
+            // patch to stations
+            // TODO should fadeUp/fadeOut be sporked?
             if (selectTexture(station) == 1) {
-                <<< "My reps:", reps, "my Fade:", fadeValues[fadeValueIndex], "::ms" >>>;
-                fadeUp(fadeValues[fadeValueIndex]::ms);
+                <<< "My reps:", reps, "my Fade:", fadeValues[index], "::ms" >>>;
+                fadeUp(fadeValues[index]::ms);
             }
-            else if (selectTexture(station) == 0 && station <= 18) {
+            else if (selectTexture(station) == 0 && station <= 18) { // TODO why station <= 18?
                 <<< "Not me this time, but reps =", reps >>>;
-                fadeOut(fadeValues[fadeValueIndex]::ms);
+                fadeOut(fadeValues[index]::ms);
             }
             
-            //choose mode   
+            // choose mode
             if (station < 10 && selectTexture(station) == 1) {
                 <<< "Unison" >>>;
                 spork ~ waitForUnison(globalEvent, reps);
@@ -580,7 +579,7 @@ fun void getTexture() {
 }
 
 // routes Texture data to machine
-fun int selectTexture(int foo) {
+fun int selectTexture(int station) {
     [[1, 5, 7, 11, 15, 17],
     [1, 5],
     [2, 6, 7, 12, 16, 17],
@@ -589,7 +588,7 @@ fun int selectTexture(int foo) {
     [3, 5], 
     [4, 6, 7, 14, 16, 17],
     [4, 5]
-    ] @=> int machineArray[][];
+    ] @=> int machineArray[][]; // TODO use of indexes 1, 3, 5, 7?
     
     int jack;
     
@@ -606,13 +605,11 @@ fun int selectTexture(int foo) {
         6 => jack;
     }
     
-    machineArray[jack] @=> int TextureBang[];
+    machineArray[jack] @=> int textureBang[];
     -1 => int check;
     
     for (0 => int i; i < TextureBang.cap(); i++) {
-        TextureBang[i] => int test;
-        
-        if (test == foo) {
+        if (textureBang[i] == station) {
             1 +=> check;
         }
     }
@@ -633,8 +630,8 @@ fun void waitForUnison(Event e, int reps) {
     //<<< "wait" >>>;
     
     for (int i; i < reps; i++) {
-        Tempo[TempoIndex]::second => dur T;
-        Color[colorIndex] @=> int seq1[];
+        tempo[tempoIndex]::second => dur T;
+        color[colorIndex] @=> int seq1[];
         ringTime[durationIndex] @=> float ringSeq[]; 
         Talea[taleaIndex] @=> float taleaSeq[];
         seq1[i%seq1.cap()] => int note;
@@ -670,8 +667,8 @@ fun void waitForPoly(Event e, int reps) {
     //<<< "wait" >>>;
     
     for (0 => int i; i < reps; i++) {
-        Tempo[TempoIndex]::second => dur T;
-        Color[colorIndex] @=> int seq1[];
+        tempo[tempoIndex]::second => dur T;
+        color[colorIndex] @=> int seq1[];
         ringTime[durationIndex] @=> float ringSeq[]; 
         Talea[taleaIndex] @=> float taleaSeq[];
         seq1[Std.rand2(0,seq1.cap()-1)] => int note;
