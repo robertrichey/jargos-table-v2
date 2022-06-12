@@ -103,7 +103,8 @@ else {
 // TODO refactor floats as fractions?
 [0.5, 1.0, 1.5, 0.16666666667, 0.33333333] @=> float tempo[];
 int tempoIndex;
-tempo[tempoIndex]::second => dur T;
+dur T;
+tempo[tempoIndex]::second => T;
 
 
 Event finished; // TODO not used anywhere. Remove?
@@ -114,7 +115,6 @@ int colorIndex;
 int durationIndex;
 int taleaIndex;
 int timbre;
-int DelayIndex;
 
 //
 OscRecv recv[4];
@@ -344,7 +344,8 @@ for (0 => int i; i < NumSineVoices; i++) {
 [0.125, 0.125, 0.5, 1.5, 4.0, 2.0]
 ] @=> float Talea[][];
 
-[0.0, 0.25, 0.5, 1.0, 2.0] @=> float DelayArray[];
+[0.0, 0.25, 0.5, 1.0, 2.0] @=> float delayArray[];
+int delayIndex;
 
 // spork independent threads
 spork ~ pulseListener();
@@ -375,7 +376,7 @@ fun void pulseListener() {
 }
 
 //
-fun void getRhythm() { //<<< "hi" >>>;
+fun void getRhythm() {
     while (true) {
         rhythmEvent => now;
         
@@ -383,19 +384,22 @@ fun void getRhythm() { //<<< "hi" >>>;
             rhythmEvent.getInt() => int station;
             rhythmEvent.getInt() => int control;
             
-            if (selectRhythm(station) == 1 && control == 5) {
-                0 => taleaIndex;//taleaIndex is reset to 0 if everyone is sent a parameter change
+            if (selectRhythm(station) && control == 5) {
+                0 => taleaIndex; // taleaIndex is reset to 0 if everyone is sent a parameter change
                 rhythmControl(control);
             }
-            else if (selectRhythm(station) == 1) {
+            else if (selectRhythm(station)) {
                 rhythmControl(control);
+            }
+            else {
+                // TODO what if neither of the above conditions are satisfied?
             }
         }
     }
 }
 
 //
-fun int selectRhythm(int foo) {
+fun int selectRhythm(int station) {
     [[1, 5, 7, 11, 15, 17],
     [1, 5],
     [2, 6, 7, 12, 16, 17],
@@ -421,43 +425,35 @@ fun int selectRhythm(int foo) {
         7 => jack;
     }
     
-    machineArray[jack] @=> int RhythmRoute[];
+    machineArray[jack] @=> int rhythmRoute[];
     -1 => int check;
     
-    for (0 => int i; i < RhythmRoute.cap(); i++) {
-        RhythmRoute[i] => int test;
-        
-        if (test == foo) {
+    for (0 => int i; i < rhythmRoute.cap(); i++) {        
+        if (rhythmRoute[i] == station) {
             1 +=> check;
         }
     }
-    
-    if (check > -1) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
+    return check > -1;
 }
 
-//
-fun void rhythmControl(int x) {
-    if (x > 5 && x < 11) {
-        x - 6 => DelayIndex;
-        <<< "My delay is:", DelayArray[DelayIndex], "of pulse." >>>;
+// TODO changes different parameters based on control value? delay vs talea vs tempo
+fun void rhythmControl(int control) {
+    if (control > 5 && control < 11) {
+        control - 6 => delayIndex;
+        <<< "My delay is:", delayArray[delayIndex], "of pulse." >>>;
     }
-    else if (x > 10 && x < 16) {
-        x - 11 => taleaIndex;
+    else if (control > 10 && control < 16) {
+        control - 11 => taleaIndex;
         <<< "My talea index is:", taleaIndex >>>;
     }
-    else if (x > 15 && x < 21) {
-        x - 16 => tempoIndex;
+    else if (control > 15 && control < 21) {
+        control - 16 => tempoIndex;
         <<< "My tempo index is:", tempoIndex >>>;
     }
 }
 
 //
-fun void getTimbre() { //<<< "hi" >>>;
+fun void getTimbre() {
     while (true) {
         timbreEvent => now;
         
@@ -466,13 +462,13 @@ fun void getTimbre() { //<<< "hi" >>>;
             timbreEvent.getInt() => int control;
             //<<< station, control >>>;
             
-            if (selectTimbre(station) == 1 && station == 6) {
+            if (selectTimbre(station) && station == 6) {
                 timbreControl(station);
             }
-            else if (selectTimbre(station) == 1 && station == 7) {
+            else if (selectTimbre(station) && station == 7) {
                 timbreControl(station);
             }
-            else if (selectTimbre(station) == 1) {
+            else if (selectTimbre(station)) {
                 timbreControl(control);
                 //<<< "yes" >>>;
             }
@@ -481,7 +477,7 @@ fun void getTimbre() { //<<< "hi" >>>;
 }
 
 //
-fun int selectTimbre(int foo) {
+fun int selectTimbre(int station) {
     [[1, 5, 7, 11, 15, 17],
     [1, 5, 6],
     [2, 6, 7, 12, 16, 17],
@@ -508,32 +504,24 @@ fun int selectTimbre(int foo) {
     }
     //<<< jack >>>;
     
-    machineArray[jack] @=>  int TimbreRoute[];
+    machineArray[jack] @=> int timbreRoute[];
     -1 => int check;
     
-    for (0 => int i; i < TimbreRoute.cap(); i++) {
-        TimbreRoute[i] => int test;
-        
-        if (test == foo) {
+    for (0 => int i; i < timbreRoute.cap(); i++) {      
+        if (timbreRoute[i] == station) {
             1 +=> check;
         }
     }
-    
-    if (check > -1) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
+    return check > -1;
 }
 
 //
-fun void timbreControl(int x) {
-    if (x >= 6 && x <= 8) {
+fun void timbreControl(int control) {
+    if (control >= 6 && control <= 8) {
         Std.rand2(0,3) => timbre;
     }
-    else if (x >=10 && x <= 14) {
-        x - 11 => timbre;
+    else if (control >=10 && control <= 14) {
+        control - 11 => timbre;
     }
     <<< timbre >>>;
 }
@@ -541,22 +529,21 @@ fun void timbreControl(int x) {
 //
 fun void getTexture() {
     [50, 300, 1000, 2000, 5000] @=> int fadeValues[];
-    int index;
     //<<< "listener is here" >>>;
     
     while (true) {
         instrumentRhythmEvent => now; 
         
         while (instrumentRhythmEvent.nextMsg() != 0) {
-            instrumentRhythmEvent.getInt() => int station; 
-            <<< station >>>;
-            
+            instrumentRhythmEvent.getInt() => int station;             
             instrumentRhythmEvent.getInt() => int reps;
-            instrumentRhythmEvent.getInt() => index;
+            instrumentRhythmEvent.getInt() => int index;
             
+            <<< station >>>;
+
             // patch to stations
             // TODO should fadeUp/fadeOut be sporked?
-            if (selectTexture(station) == 1) {
+            if (selectTexture(station)) {
                 <<< "My reps:", reps, "my Fade:", fadeValues[index], "::ms" >>>;
                 fadeUp(fadeValues[index]::ms);
             }
@@ -566,11 +553,11 @@ fun void getTexture() {
             }
             
             // choose mode
-            if (station < 10 && selectTexture(station) == 1) {
+            if (station < 10 && selectTexture(station)) {
                 <<< "Unison" >>>;
                 spork ~ waitForUnison(globalEvent, reps);
             }
-            else if (station > 10 && selectTexture(station) == 1) {
+            else if (station > 10 && selectTexture(station)) {
                 <<< "Poly" >>>;
                 spork ~ waitForPoly(globalEvent, reps);
             }
@@ -588,7 +575,7 @@ fun int selectTexture(int station) {
     [3, 5], 
     [4, 6, 7, 14, 16, 17],
     [4, 5]
-    ] @=> int machineArray[][]; // TODO use of indexes 1, 3, 5, 7?
+    ] @=> int machineArray[][];
     
     int jack;
     
@@ -608,25 +595,19 @@ fun int selectTexture(int station) {
     machineArray[jack] @=> int textureBang[];
     -1 => int check;
     
-    for (0 => int i; i < TextureBang.cap(); i++) {
+    for (0 => int i; i < textureBang.cap(); i++) {
         if (textureBang[i] == station) {
             1 +=> check;
         }
     }
-    
-    if (check > -1) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
+    return check > -1;
 }
 
 //
 fun void waitForUnison(Event e, int reps) {
     Event off;
     e => now;
-    DelayArray[DelayIndex]::T => now;
+    delayArray[delayIndex]::T => now;
     //<<< "wait" >>>;
     
     for (int i; i < reps; i++) {
