@@ -84,12 +84,6 @@
 //
 
 
-// TODO these are unused in the script. Remove?
-Event finished; 
-Event e; 
-0.5::second => dur T; 
-//---------------------------------------------
-
 Hid inputDevice; 
 HidMsg inputMessage;
 int fadeValue;
@@ -99,7 +93,6 @@ int fadeValue;
 if (me.args()) { 
     Std.atoi(me.arg(0)) => keyboard;
 }
-
 if (!inputDevice.openKeyboard(keyboard)) {
     me.exit(); 
 }
@@ -159,6 +152,7 @@ int key[256];
 46 => key[45];//-
 47 => key[46];//=
 48 => key[44]; //space
+
 //
 spork ~ sendPulse(); // spork PULSE FOR SYNC TODO
 
@@ -173,22 +167,27 @@ while (true) {
         if (inputMessage.isButtonDown()) {
             //<<< key[inputMessage.which] >>>;
             if (key[inputMessage.which] > 0 && key[inputMessage.which] < 27) {
-                <<< key[inputMessage.which] >>>;
+                // <<< key[inputMessage.which] >>>;
                 sendControlSignal(key[inputMessage.which]);
             }
         }
     }
 }
 
-//
+// TODO fadeValue doesn't seem to make a perceptible change in melody
+// TODO should what's being sent to machine be printed?
 fun void sendControlSignal(int station) {   
     getfadeValue(station) => fadeValue;
+    getReps() => int reps;
     
     xmit.startMsg("/instrumentRhythm", "i i i");
     station => xmit.addInt;
-    getReps() => xmit.addInt;
+    reps => xmit.addInt;
     fadeValue => xmit.addInt;
-    //<<< fadeValue >>>;
+    
+    <<< station >>>;
+    <<< fadeValue >>>;
+    <<< "", "" >>>;
 }
 
 // multicasts name of this machine to all on LAN
@@ -209,7 +208,7 @@ fun int getReps() {
     return Std.rand2(3, 23);
 }
 
-//
+// TODO fadeValue will always be 0-4?
 fun int getfadeValue(int station) {
     if (station >= 22 && station <= 26) { 
         return station - 22;
