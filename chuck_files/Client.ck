@@ -81,64 +81,109 @@ U.S.A.
 //-----------------------------------------------------------------------------
 
 
-// TODO comments and casing for below globals --------------------------------------------------
-//
-0.9 => dac.gain; //adjust manually - TODO why?
+// MACHINE AND OSC SETUP -------------------------------------------------------------
 
 int myMachine;
 
-// TODO confirm logic
 if (me.args()) {
-    me.arg(0) => Std.atoi => myMachine;
+    Std.atoi(me.arg(0)) => myMachine;
+    
+    if (myMachine < 1 || myMachine > 4) {
+        <<< "Not a valid machine choice." >>>;
+        me.exit();
+    } 
+    else {
+        <<< "My machine is number:", myMachine >>>;
+    }
 }
-
-if (myMachine <= 0 || myMachine > 4) {
-    <<< "Not a valid machine choice." >>>;
-} 
 else {
-    <<< "My machine is number:", myMachine >>>;
+    <<< "Invalid argument" >>>;
+    me.exit();
 }
 
-
-// TODO refactor floats as fractions?
-[0.5, 1.0, 1.5, 0.16666666667, 0.33333333] @=> float tempo[];
-int tempoIndex;
-dur T;
-tempo[tempoIndex]::second => T;
-
-
-Event finished; // TODO not used anywhere. Remove?
-Event globalEvent; // TODO needs a better name
-
-
-int colorIndex;
-int durationIndex;
-int taleaIndex;
-int timbre;
-
-//
 OscRecv recv[4];
-5501 => recv[0].port;//receives texture and pulse
-5502 => recv[1].port;//receives timbre
-5503 => recv[2].port;//receives rhythm/offset
-5504 => recv[3].port;//receives pitch
+5501 => recv[0].port; //receives texture and pulse
+5502 => recv[1].port; //receives timbre
+5503 => recv[2].port; //receives rhythm/offset
+5504 => recv[3].port; //receives pitch
 
-//
 for (0 => int i; i < 4; i++) {
     recv[i].listen();
 }
 
 // TODO why does recv[0] have two .event operations?
 recv[0].event("/pulse, i") @=> OscEvent pulseEvent;
-recv[0].event("/instrumentRhythm, i i i") @=> OscEvent instrumentRhythmEvent;//station
-recv[1].event("/Timbre, i i") @=> OscEvent timbreEvent;
-recv[2].event("/Rhythm, i i") @=> OscEvent rhythmEvent;
-recv[3].event("/Color, i") @=> OscEvent colorEvent;
+recv[0].event("/instrumentRhythm, i i i") @=> OscEvent instrumentRhythmEvent;
+recv[1].event("/timbre, i i") @=> OscEvent timbreEvent;
+recv[2].event("/rhythm, i i") @=> OscEvent rhythmEvent;
+recv[3].event("/color, i") @=> OscEvent colorEvent;
 
-Gain MainOut => dac;
-float Main => MainOut.gain; // TODO initialization of Main? Only used for fadeUp() and fadedDown() - might be able to ditch it
-<<< Main >>>;
-//-----------------------------------------------------------------------------------------------
+Event globalEvent; // TODO needs purpose clarified and a more descriptive name
+
+
+
+// SCORE PARAMETERS ---------------------------------------------------------------------------
+
+[[58, 60, 62], //0
+[57,64, 65, 67], //1
+[50, 60, 64, 65], //2
+[49, 56, 59, 61, 63],//3
+[48, 56, 59, 61, 63],//4
+[48, 58, 60, 62],//5
+[57, 58, 62, 64],//6
+[55, 57, 64, 65, 67],//7
+[50, 57, 59, 64],//8
+[52, 62, 64, 65],//9
+[68, 70, 76, 77],//10
+[61, 70, 72, 79],//11
+[65, 69, 74, 76],//12
+[63, 65, 71, 73, 75],//13
+[67, 70, 75, 74],//14
+[69, 74, 75, 78],//15
+[69, 72, 74, 76, 82],//16
+[69, 71, 73, 79, 81, 76],//17
+[53, 64, 65, 71, 72, 44],//18
+[68, 71, 72, 74, 79],//19
+[45, 52, 53, 55, 64, 69, 72, 74]//20
+] @=> int color[][];
+int colorIndex;
+
+[[0.125, 0.25, 0.5, 1.0, 2.0, 4.0], 
+[1.0, 2.0, 3.0, 4.0, 4.0]
+] @=> float ringTime[][];
+int ringIndex;
+
+[[0.25, 0.25, 0.5, 0.5], 
+[0.25, 1.0, 2.0], 
+[0.5, 0.5, 1.0, 1.0, 0.25], 
+[0.125, 0.25, 0.125, 0.25, 0.25, 1.0, 2.0], 
+[0.125, 0.125, 0.5, 1.5, 4.0, 2.0]
+] @=> float taleaArray[][];
+int taleaIndex;
+
+// TODO does order within tempo array matter? (see rhythmControl)
+1.0 / 3.0 => float oneThird;
+1.0 / 6.0 => float oneSixth;
+[0.5, 1.0, 1.5, oneSixth, oneThird] @=> float tempo[];
+int tempoIndex;
+
+// TODO T needs to be further clarified
+dur T;
+tempo[tempoIndex]::second => T;
+
+[0.0, 0.25, 0.5, 1.0, 2.0] @=> float delayArray[];
+int delayIndex;
+
+// used for selecting instrument TODO place in getter/setter? (see timbreControl, waitForUnison, waitForPoly)
+int timbre;
+
+0.9 => dac.gain; // TODO why set dac gain?
+Gain mainOut => dac;
+float mainOutGain => mainOut.gain; // TODO initialization of mainOutGain? Only used for fadeUp() and fadedDown() - might be able to ditch it
+
+
+
+// INSTRUMENT SETUP ---------------------------------------------------------------------------
 
 // Karp OrK tunings
 // TODO what is the point of these? just intonation?
@@ -222,130 +267,93 @@ c2, csh2, d2, dsh2, e2, f2, fsh2, g2, gsh2, a2, ash2, b2,
 c3, csh3, d3, dsh3, e3, f3, fsh3, g3, gsh3, a3, ash3, b3,
 c4, csh4, d4, dsh4, e4, f4, fsh4, g4, gsh4, a4, ash4, b4,
 c5, csh5, d5, dsh5, e5, f5, fsh5, g5, gsh5, a5, ash5, b5,
-c6, csh6, d6, dsh6, e6, f6, fsh6, g6, gsh6, a6, ash6, b6, c7] 
-@=> float pitches[]; 
+c6, csh6, d6, dsh6, e6, f6, fsh6, g6, gsh6, a6, ash6, b6, c7] @=> float pitches[]; 
 
 
 //
-10 => int numKarpvoices;
-int Karpvoices[numKarpvoices]; // an array to keep up with voices used
-StifKarp m[numKarpvoices]; // TODO variable name
-BPF pluckFilter[numKarpvoices];
-Envelope myenv[numKarpvoices];
-JCRev rKarp; 
-0.05 => rKarp.mix; 
-rKarp => MainOut;
+10 => int pluckedCount;
+int pluckedVoices[pluckedCount]; // an array to keep up with voices used
+StifKarp pluckedString[pluckedCount];
+BPF pluckedFilter[pluckedCount];
+Envelope pluckedEnvelope[pluckedCount];
+JCRev pluckedReverb; 
+0.05 => pluckedReverb.mix; 
+pluckedReverb => mainOut;
 
 //
-for (0 => int i; i < numKarpvoices; i++) {
-    m[i] => pluckFilter[i] => myenv[i]; 
-    1.0 => pluckFilter[i].gain;
-    0.6  => m[i].pickupPosition;// these effect tuning; so, set once 
-    1.0  => m[i].sustain => m[i].stretch => m[i].baseLoopGain;   
-    (Std.rand2f(68.0, 80.0), 1.0) => pluckFilter[i].set; // TODO check parentheses - is this broken?
-    0 => Karpvoices[i]; // all voices free
+for (0 => int i; i < pluckedCount; i++) {
+    pluckedString[i] => pluckedFilter[i] => pluckedEnvelope[i]; 
+    1.0 => pluckedFilter[i].gain;
+    0.6  => pluckedString[i].pickupPosition; // these effect tuning; so, set once
+    1.0  => pluckedString[i].sustain => pluckedString[i].stretch => pluckedString[i].baseLoopGain;   
+    pluckedFilter[i].set(Std.rand2f(68.0, 80.0), 1.0);
+    0 => pluckedVoices[i];  // set voices to free
 }
 
+10 => int sweepCount;
+int sweepVoices[sweepCount];
+StifKarp sweepString[sweepCount];
+BPF sweepFilter[sweepCount];
+Envelope sweepEnvelope[sweepCount];
 
-//
-10 => int numSweepKarpvoices;
-int SweepKarpvoices[numSweepKarpvoices]; // an array to keep up with voices used
-StifKarp swm[numSweepKarpvoices];
-BPF sweepFilter[numSweepKarpvoices];
-Envelope myenvsk[numSweepKarpvoices];
-
-// TODO what is the purpose of Gain dry?
+// TODO what is the purpose of dry vs sweepGain?
 Gain dry;
 Gain wet;
-Gain SweepkpOrk => dry;
-dry => DelayL del => HPF highPass => Dyno comp => MainOut;
+Gain sweepGain => dry;
+dry => DelayL del => HPF highPass => Dyno compression => mainOut;
 del => wet => del;
 
 // set parameters
-10::ms => del.delay;
 0.15 => dry.gain;
 0.99 => wet.gain;
+10::ms => del.delay;
 3 => highPass.Q;
-comp.compress();
+compression.compress();
 
 //
-for (0 => int i; i < numSweepKarpvoices; i++) {
-    swm[i] => sweepFilter[i] => myenvsk[i]; 
+for (0 => int i; i < sweepCount; i++) {
+    sweepString[i] => sweepFilter[i] => sweepEnvelope[i]; 
     2.0 => sweepFilter[i].gain;
-    0.6  => swm[i].pickupPosition; // these effect tuning; so, set once 
-    1.0  => swm[i].sustain => swm[i].stretch => swm[i].baseLoopGain;   
-    (Std.rand2f(68.0, 80.0), 1.0) => sweepFilter[i].set;    
-    0 => SweepKarpvoices[i]; //all voices free
+    0.6  => sweepString[i].pickupPosition; // these effect tuning; so, set once 
+    1.0  => sweepString[i].sustain => sweepString[i].stretch => sweepString[i].baseLoopGain;   
+    sweepFilter[i].set(Std.rand2f(68.0, 80.0), 1.0);    
+    0 => sweepVoices[i];
 }
 
 
 //
-10 => int numBlo;
-int Blovoices[numBlo];
-BlowBotl bottle[numBlo]; 
-ResonZ resonator[numBlo];
-Envelope env[numBlo];
-JCRev rBlo => MainOut;
-0.15 => rBlo.mix;
+10 => int blowCount;
+int blowVoices[blowCount];
+BlowBotl blowBottle[blowCount]; 
+ResonZ blowFilter[blowCount];
+Envelope blowEnvelope[blowCount];
+JCRev blowReverb => mainOut;
+0.15 => blowReverb.mix;
 
-for (0 => int i; i < numBlo; i++) { 
-    bottle[i] => resonator[i] => env[i];
-    resonator[i].set(Std.rand2f(315.0, 325.0), Std.rand2f(0.35, 0.6));
-    0 => Blovoices[i]; //reset voices to get
+for (0 => int i; i < blowCount; i++) { 
+    blowBottle[i] => blowFilter[i] => blowEnvelope[i];
+    blowFilter[i].set(Std.rand2f(315.0, 325.0), Std.rand2f(0.35, 0.6));
+    0 => blowVoices[i];
 }
 
 
 //
-10 => int NumSineVoices;
-SinOsc s[NumSineVoices];
-int SineVoice[NumSineVoices];
-Envelope sineEnv[NumSineVoices];
-JCRev rSine => MainOut;
-0.25 => rSine.mix;
+10 => int sineCount;
+int sineVoices[sineCount];
+SinOsc sine[sineCount];
+Envelope sineEnvelope[sineCount];
+JCRev sineReverb => mainOut;
+0.25 => sineReverb.mix;
 
-for (0 => int i; i < NumSineVoices; i++) { 
-    0.03 => s[i].gain;
-    s[i] => sineEnv[i];
+for (0 => int i; i < sineCount; i++) { 
+    0.03 => sine[i].gain;
+    sine[i] => sineEnvelope[i];
+    0 => sineVoices[i];
 }
 
 
-// score parameters
-[[ 58, 60, 62 ], //0
-[57,64, 65, 67], //1
-[50, 60, 64, 65], //2
-[49, 56, 59, 61, 63],//3
-[48, 56, 59, 61, 63],//4
-[48, 58, 60, 62],//5
-[57, 58, 62, 64],//6
-[55, 57, 64, 65, 67],//7
-[50, 57, 59, 64],//8
-[52, 62, 64, 65],//9
-[68, 70, 76, 77],//10
-[61, 70, 72, 79],//11
-[65, 69, 74, 76],//12
-[63, 65, 71, 73, 75],//13
-[67, 70, 75, 74],//14
-[69, 74, 75, 78],//15
-[69, 72, 74, 76, 82],//16
-[69, 71, 73, 79, 81, 76],//17
-[53, 64, 65, 71, 72, 44],//18
-[68, 71, 72, 74, 79],//19
-[45, 52, 53, 55, 64, 69, 72, 74]//20
-] @=> int color[][];
 
-[[0.125, 0.25, 0.5, 1.0, 2.0, 4.0], 
-[1.0, 2.0, 3.0, 4.0, 4.0]
-] @=> float ringTime[][];
-
-[[0.25, 0.25, 0.5, 0.5], 
-[0.25, 1.0, 2.0], 
-[0.5, 0.5, 1.0, 1.0, 0.25], 
-[0.125, 0.25, 0.125, 0.25, 0.25, 1.0, 2.0], 
-[0.125, 0.125, 0.5, 1.5, 4.0, 2.0]
-] @=> float Talea[][];
-
-[0.0, 0.25, 0.5, 1.0, 2.0] @=> float delayArray[];
-int delayIndex;
+// LISTEN AND MAKE MUSIC --------------------------------------------------------------------
 
 // spork independent threads
 spork ~ pulseListener();
@@ -359,7 +367,9 @@ spork ~ timer();
 // Let time pass
 1::hour => now;
 
-//------------------------------------------------------------------------
+
+
+// MAIN AND HELPER FUNCTIONS ------------------------------------------------------------------------
 
 // Repeatedly receives counts 1-8 from TextureServe.ck 
 // TODO intention vs timer? Is it functional? See sendPulse() in TextureServe.ck
@@ -384,7 +394,7 @@ fun void getRhythm() {
             rhythmEvent.getInt() => int station;
             rhythmEvent.getInt() => int control;
             
-            if (selectRhythm(station) && control == 5) {
+            if (selectRhythm(station) && control == 5) { // TODO why control == 5?
                 0 => taleaIndex; // taleaIndex is reset to 0 if everyone is sent a parameter change
                 rhythmControl(control);
             }
@@ -398,7 +408,7 @@ fun void getRhythm() {
     }
 }
 
-//
+// TODO evaluation of return boolean: check > -1 vs check > 0
 fun int selectRhythm(int station) {
     [[1, 5, 7, 11, 15, 17],
     [1, 5],
@@ -436,7 +446,7 @@ fun int selectRhythm(int station) {
     return check > -1;
 }
 
-// TODO changes different parameters based on control value? delay vs talea vs tempo
+// TODO changes different parameters based on control value? (delay vs talea vs tempo); are all cases covered? (no else block)
 fun void rhythmControl(int control) {
     if (control > 5 && control < 11) {
         control - 6 => delayIndex;
@@ -452,7 +462,7 @@ fun void rhythmControl(int control) {
     }
 }
 
-//
+// TODO are all cases covered? It seems timbreControl is called as long as station > 0
 fun void getTimbre() {
     while (true) {
         timbreEvent => now;
@@ -476,7 +486,7 @@ fun void getTimbre() {
     }
 }
 
-//
+// TODO evaluation of return boolean: check > -1 vs check > 0
 fun int selectTimbre(int station) {
     [[1, 5, 7, 11, 15, 17],
     [1, 5, 6],
@@ -518,18 +528,17 @@ fun int selectTimbre(int station) {
 //
 fun void timbreControl(int control) {
     if (control >= 6 && control <= 8) {
-        Std.rand2(0,3) => timbre;
+        Std.rand2(0,  3) => timbre;
     }
-    else if (control >=10 && control <= 14) {
+    else if (control >= 10 && control <= 14) {
         control - 11 => timbre;
     }
     <<< timbre >>>;
 }
 
-//
+// TODO lack of else blocks?
 fun void getTexture() {
     [50, 300, 1000, 2000, 5000] @=> int fadeValues[];
-    //<<< "listener is here" >>>;
     
     while (true) {
         instrumentRhythmEvent => now; 
@@ -540,7 +549,7 @@ fun void getTexture() {
             instrumentRhythmEvent.getInt() => int index;
             
             <<< station >>>;
-
+            
             // patch to stations
             // TODO should fadeUp/fadeOut be sporked?
             if (selectTexture(station)) {
@@ -565,7 +574,7 @@ fun void getTexture() {
     }
 }
 
-// routes Texture data to machine
+// routes texture data to machine
 fun int selectTexture(int station) {
     [[1, 5, 7, 11, 15, 17],
     [1, 5],
@@ -603,162 +612,168 @@ fun int selectTexture(int station) {
     return check > -1;
 }
 
-//
+// TODO role of events?
+// TODO talea vs ringTime when performing a 'unison'
 fun void waitForUnison(Event e, int reps) {
     Event off;
     e => now;
-    delayArray[delayIndex]::T => now;
+    delayArray[delayIndex]::T => now; // TODO is this deliberately set to previously selected value of T?
     //<<< "wait" >>>;
     
-    for (int i; i < reps; i++) {
-        tempo[tempoIndex]::second => dur T;
-        color[colorIndex] @=> int seq1[];
-        ringTime[durationIndex] @=> float ringSeq[]; 
-        Talea[taleaIndex] @=> float taleaSeq[];
-        seq1[i%seq1.cap()] => int note;
-        ringSeq[i % ringSeq.cap()]::T => dur len;
-        
+    tempo[tempoIndex]::second => T;
+    color[colorIndex] @=> int colorSequence[];
+    ringTime[ringIndex] @=> float ringSequence[];
+    taleaArray[taleaIndex] @=> float taleaSequence[];
+    
+    for (0 => int i; i < reps; i++) {
+        colorSequence[i % colorSequence.cap()] => int note;
+        ringSequence[i % ringSequence.cap()]::T => dur length;
+            
         if (timbre == 0) {
             <<< "Sine" >>>;
-            spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
+            spork ~ playSine(note, length, 8::ms, 10::ms);
         }
         else if (timbre == 1) {
-            <<< "Blo" >>>;
-            spork ~ playBlo(note, len, 8::ms, 10::ms);
+            <<< "Blow" >>>;
+            spork ~ playBlow(note, length, 8::ms, 10::ms);
         }
         else if (timbre == 2) {
-            <<< "Pluk" >>>;
-            spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.9));
+            <<< "Pluck" >>>;
+            spork ~ playPlucked(note, length, 8::ms, 10::ms, Std.rand2f(0.7, 0.9));
         }
         else if (timbre == 3) {
             <<< "Sweep" >>>;
-            spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
+            spork ~ playSweep(note, length, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
         }
-        taleaSeq[i % taleaSeq.cap()]::T => now; 
+        taleaSequence[i % taleaSequence.cap()]::T => now; 
     } 
     off.signal();
-    // <<< "done" >>>;
     off => now;
 }
 
-//
+// TODO doesn't select a delay?
+// TODO role of events?
 fun void waitForPoly(Event e, int reps) { 
     Event off;
     e => now;
     //<<< "wait" >>>;
     
+    tempo[tempoIndex]::second => T;
+    color[colorIndex] @=> int colorSequence[];
+    ringTime[ringIndex] @=> float ringSequence[]; 
+    taleaArray[taleaIndex] @=> float taleaSequence[];
+    
     for (0 => int i; i < reps; i++) {
-        tempo[tempoIndex]::second => dur T;
-        color[colorIndex] @=> int seq1[];
-        ringTime[durationIndex] @=> float ringSeq[]; 
-        Talea[taleaIndex] @=> float taleaSeq[];
-        seq1[Std.rand2(0,seq1.cap()-1)] => int note;
-        ringSeq[Std.rand2(0,ringSeq.cap()-1)]::T => dur len;
+        colorSequence[Std.rand2(0, colorSequence.cap()-1)] => int note;
+        ringSequence[Std.rand2(0, ringSequence.cap()-1)]::T => dur length;
         
         if (timbre == 0) {
-            spork ~ PlaySineNote(note, len, 8::ms, 10::ms);
+            <<< "Sine" >>>;
+            spork ~ playSine(note, length, 8::ms, 10::ms);
         }
         else if (timbre == 1) {
-            spork ~ playBlo(note, len, 8::ms, 10::ms);
+            <<< "Blow" >>>;
+            spork ~ playBlow(note, length, 8::ms, 10::ms);
         }
         else if (timbre == 2) {
-            spork ~ playKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.6, 0.99)); 
+            <<< "Pluck" >>>;
+            spork ~ playPlucked(note, length, 8::ms, 10::ms, Std.rand2f(0.6, 0.99)); 
         }
         else if (timbre == 3) {
-            spork ~ playSweepKarp(note, len, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
+            <<< "Sweep" >>>;
+            spork ~ playSweep(note, length, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
         }
         0.5::T => now; // a periodic groove
     } 
     off.signal();
-    // <<< "done" >>>;
     off => now;
 }
 
 //
-fun void playKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) {
-    getFreeVoice(Karpvoices) => int newvoice; //<<< newvoice >>>;
+fun void playPlucked(int pitch, dur length, dur attackTime, dur delayTime, float pluck) {
+    getFreeVoice(pluckedVoices) => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
-        attktime => myenv[newvoice].duration;
-        myenv[newvoice] => rKarp;
-        pitches[pitch-24] => m[newvoice].freq;
-        Std.rand2f(0.2, 0.8) => m[newvoice].pickupPosition;
-        1 => myenv[newvoice].keyOn;
-        pluck => m[newvoice].pluck; //<<< "att" >>>;
-        len - decaytime => now;       
-        decaytime => myenv[newvoice].duration;
-        1 => myenv[newvoice].keyOff; //<<< "decay" >>>;
-        decaytime => now;        
-        myenv[newvoice] =< rKarp;
-        0 => Karpvoices[newvoice];
+        attackTime => pluckedEnvelope[newvoice].duration;
+        pluckedEnvelope[newvoice] => pluckedReverb;
+        pitches[pitch - 24] => pluckedString[newvoice].freq;
+        Std.rand2f(0.2, 0.8) => pluckedString[newvoice].pickupPosition;
+        1 => pluckedEnvelope[newvoice].keyOn;
+        pluck => pluckedString[newvoice].pluck;
+        length - delayTime => now;
+        delayTime => pluckedEnvelope[newvoice].duration;
+        1 => pluckedEnvelope[newvoice].keyOff;
+        delayTime => now;
+        pluckedEnvelope[newvoice] =< pluckedReverb;
+        0 => pluckedVoices[newvoice];
     }
 }
 
 //
-fun void playSweepKarp(int pitch, dur len, dur attktime, dur decaytime, float pluck) { 
-    getFreeVoice(SweepKarpvoices) => int newvoice; //<<< newvoice >>>;
+fun void playSweep(int pitch, dur length, dur attackTime, dur delayTime, float pluck) { 
+    getFreeVoice(sweepVoices) => int newvoice; //<<< newvoice >>>;
     
     if (newvoice > -1) {        
-        attktime => myenvsk[newvoice].duration;
-        myenvsk[newvoice] => SweepkpOrk;
-        pitches[pitch-24] => swm[newvoice].freq;
-        Std.rand2f(0.2, 0.8) => swm[newvoice].pickupPosition;
-        1 => myenvsk[newvoice].keyOn;
-        pluck => swm[newvoice].pluck; //<<< "att" >>>;
-        len - decaytime => now;       
-        decaytime => myenvsk[newvoice].duration;
-        1 => myenvsk[newvoice].keyOff; //<<< "decay" >>>;
-        decaytime => now;        
-        myenvsk[newvoice] =< SweepkpOrk;
-        0 => SweepKarpvoices[newvoice];
+        attackTime => sweepEnvelope[newvoice].duration;
+        sweepEnvelope[newvoice] => sweepGain;
+        pitches[pitch - 24] => sweepString[newvoice].freq;
+        Std.rand2f(0.2, 0.8) => sweepString[newvoice].pickupPosition;
+        1 => sweepEnvelope[newvoice].keyOn;
+        pluck => sweepString[newvoice].pluck;
+        length - delayTime => now;       
+        delayTime => sweepEnvelope[newvoice].duration;
+        1 => sweepEnvelope[newvoice].keyOff;
+        delayTime => now;        
+        sweepEnvelope[newvoice] =< sweepGain;
+        0 => sweepVoices[newvoice];
     }
 }
 
 //
-fun void PlaySineNote(int note, dur len, dur attktime, dur decaytime) { 
-    getFreeVoice(SineVoice) => int newvoice; // <<< "sine" >>>;
-    
-    if (newvoice > -1) {
-        attktime => sineEnv[newvoice].duration;
-        sineEnv[newvoice] => rSine;
-        note => float freq;
-        Std.mtof(freq + 12) => s[newvoice].freq;
-        0 => s[newvoice].phase;
-        1 => sineEnv[newvoice].keyOn;
-        len - decaytime => now;
-        decaytime => sineEnv[newvoice].duration;
-        1 => sineEnv[newvoice].keyOff;
-        decaytime => now;
-        sineEnv[newvoice] =< rSine;
-        0 => SineVoice[newvoice];
-    }
-}
-
-//
-fun void playBlo(int note, dur len, dur attktime, dur decaytime) {
-    getFreeVoice(Blovoices) => int newvoice; //<<<"blo" >>>;
+fun void playBlow(int note, dur length, dur attackTime, dur delayTime) {
+    getFreeVoice(blowVoices) => int newvoice; //<<<"blo" >>>;
     
     if (newvoice > -1) { 
-        attktime => env[newvoice].duration;
-        env[newvoice] => rBlo;
+        attackTime => blowEnvelope[newvoice].duration;
+        blowEnvelope[newvoice] => blowReverb;
         note => float freq;
-        Std.mtof( freq )=> bottle[newvoice].freq;
-        0.019653 => bottle[newvoice].noiseGain;
-        Std.rand2f(3.2, 4.4) => bottle[newvoice].vibratoFreq;
-        Std.rand2f (0.5, 0.9) => bottle[newvoice].vibratoGain;
-        0.65 => bottle[newvoice].volume; 
-        1 => env[newvoice].keyOn;
-        Std.rand2f(0.2, 0.4) => bottle[newvoice].noteOn;
-        len - decaytime => now;
-        1 => env[newvoice].keyOff;
-        decaytime => now;
-        1. => bottle[newvoice].noteOff;
-        env[newvoice] =< rBlo;
-        0 => Blovoices[newvoice];
+        Std.mtof(freq)=> blowBottle[newvoice].freq;
+        0.019653 => blowBottle[newvoice].noiseGain;
+        Std.rand2f(3.2, 4.4) => blowBottle[newvoice].vibratoFreq;
+        Std.rand2f (0.5, 0.9) => blowBottle[newvoice].vibratoGain;
+        0.65 => blowBottle[newvoice].volume; 
+        1 => blowEnvelope[newvoice].keyOn;
+        Std.rand2f(0.2, 0.4) => blowBottle[newvoice].noteOn;
+        length - delayTime => now;
+        1 => blowEnvelope[newvoice].keyOff;
+        delayTime => now;
+        1 => blowBottle[newvoice].noteOff;
+        blowEnvelope[newvoice] =< blowReverb;
+        0 => blowVoices[newvoice];
     }
 }
 
-// Find the index of a free voice in a ugen array using in auxiliary 'voices' array
+//
+fun void playSine(int note, dur length, dur attackTime, dur delayTime) { 
+    getFreeVoice(sineVoices) => int newvoice;
+    
+    if (newvoice > -1) {
+        attackTime => sineEnvelope[newvoice].duration;
+        sineEnvelope[newvoice] => sineReverb;
+        note => float freq;
+        Std.mtof(freq + 12) => sine[newvoice].freq;
+        0 => sine[newvoice].phase;
+        1 => sineEnvelope[newvoice].keyOn;
+        length - delayTime => now;
+        delayTime => sineEnvelope[newvoice].duration;
+        1 => sineEnvelope[newvoice].keyOff;
+        delayTime => now;
+        sineEnvelope[newvoice] =< sineReverb;
+        0 => sineVoices[newvoice];
+    }
+}
+
+// Find the index of a free voice in a ugen array using an auxiliary 'voices' array
 fun int getFreeVoice(int voices[]) { 
     for (0 => int i; i < voices.cap(); i++) {
         if (voices[i] == 0) { 
@@ -772,16 +787,16 @@ fun int getFreeVoice(int voices[]) {
 //----------------------------------------------------------------------
 // TODO what do these do?
 //      Result of dividing two durations and chucking to float?
-//      Can this logic be replaced by the use of a 'master' Envelope on MainOut?
+//      Can this logic be replaced by the use of a 'master' Envelope on mainOut?
 
 fun void fadeUp (dur fadeTime) {   
     fadeTime / 2::ms => float n;
     0.9 / n => float d;
     
-    while (Main < 0.9) {
+    while (mainOutGain < 0.9) {
         for (int i; i < 50; i++) {
-            d +=> Main => Main;
-            Main => MainOut.gain;
+            d +=> mainOutGain => mainOutGain;
+            mainOutGain => mainOut.gain;
             2::ms => now;
         }
     }
@@ -791,10 +806,10 @@ fun void fadeOut(dur fadeTime) {
     fadeTime / 2::ms => float n;
     0.9 / n => float d;
     
-    while (Main > 0.0) {
+    while (mainOutGain > 0.0) {
         for (0 => int i; i < 50; i++) {
-            Main - d => Main;
-            Main => MainOut.gain;
+            mainOutGain - d => mainOutGain;
+            mainOutGain => mainOut.gain;
             2::ms => now;
         }
     }
@@ -802,7 +817,7 @@ fun void fadeOut(dur fadeTime) {
 //----------------------------------------------------------------------
 
 //
-fun void getColor() { //<<< "color is here" >>>;
+fun void getColor() {
     while (true) {
         colorEvent => now;
         
@@ -813,14 +828,15 @@ fun void getColor() { //<<< "color is here" >>>;
     }
 }
 
-// TODO what is 't'? logic behind calculation of f.freq?
-// Used for SweepkpOrk's filter
+// TODO what is 't'? logic behind calculation of highPass.freq?
+// Used for sweepGain's filter
 fun void sweep() {
     float t;
     
     while (true) {
         // sweep the cutoff
-        Math.sin(t) * 110 => Std.fabs => Std.mtof => highPass.freq; // no parentheses on functions - broken?
+        Math.sin(t) * 110 => Std.fabs => Std.mtof => highPass.freq; 
+        // Std.mtof(Std.fabs(Math.sin(t) * 110)) => highPass.freq; // TODO compare to above
         // increment t
         0.005 +=> t;
         // advance time
