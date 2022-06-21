@@ -60,7 +60,7 @@
 //
 // It does not matter which machine number goes with which part. 
 //
-// Players are updated during play with messages indicating what timbre or color (pitchtable)
+// Players are updated during play with hidMessages indicating what timbre or color (pitchtable)
 // or talea index (duration series) their station is sounding--or, if they are not playing.
 // Every 12 seconds a time appears minute:second to time the length of fun you are having. 
 // The duration of the composition is up to the group, or the TextureServe.ck player. 
@@ -72,7 +72,7 @@
 // The other machines may change the variables of their parameters "mid-stream," or
 // in the middle of a sounding sequence of note events.
 //
-// Note: TimbreServe.ck and RhythmServe.ck require two strokes to send a message. 
+// Note: TimbreServe.ck and RhythmServe.ck require two strokes to send a hidMessage. 
 // See keyboard mapping pdf's for more direction.
 //
 // The author is perfectly satisfied listening to unamplified laptops playing
@@ -84,18 +84,18 @@
 //
 
 
-Hid inputDevice; 
-HidMsg inputMessage;
-int fadeValue;
+Hid hidDevice; 
+HidMsg hidMessage;
 0 => int keyboard;
 
 // TODO arg should be 1? Could depend on machine
 if (me.args()) { 
     Std.atoi(me.arg(0)) => keyboard;
 }
-if (!inputDevice.openKeyboard(keyboard)) {
+if (!hidDevice.openKeyboard(keyboard)) {
     me.exit(); 
 }
+<<< "keyboard '" + hidDevice.name() + "' ready", "" >>>;
 
 // NETWORK PARAMETERS
 OscSend xmit;
@@ -153,35 +153,47 @@ int key[256];
 47 => key[46];//=
 48 => key[44]; //space
 
-//
-spork ~ sendPulse(); // spork PULSE FOR SYNC TODO
+int fadeValue;
 
-//
+// spork PULSE FOR SYNC - TODO broken?
+spork ~ sendPulse();
+
+// Listen for inputsendOSC
 while (true) {
-    inputDevice => now;
+    hidDevice => now;
     
-    while (inputDevice.recv(inputMessage)) {
-        if (inputMessage.which > 256) {
-            continue;
-        }
-        if (inputMessage.isButtonDown()) {
-            //<<< key[inputMessage.which] >>>;
-            if (key[inputMessage.which] > 0 && key[inputMessage.which] < 27) {
-                // <<< key[inputMessage.which] >>>;
-                sendControlSignal(key[inputMessage.which]);
+    while (hidDevice.recv(hidMessage)) {
+        if (hidMessage.isButtonDown()) {
+            key[hidMessage.which] => int keyValue;
+            
+            if (keyValue > 0 && keyValue < 27) {
+                sendOSC(keyValue);
             }
         }
     }
 }
 
+// multicasts name of this machine to all on LAN
+// TODO seems to send beat number 1-8.
+fun void sendPulse() {
+    0 => int beatNumber;
+    
+    while (true) {
+        xmit.startMsg("/pulse", "i");
+        (beatNumber % 8) + 1 => xmit.addInt;
+        beatNumber++;
+        250::ms => now;   
+    }
+}
+
 // TODO fadeValue doesn't seem to make a perceptible change in melody
-// TODO should what's being sent to machine be printed?
-fun void sendControlSignal(int station) {   
+// TODO should what's being sent to Client be printed?
+fun void sendOSC(int station) {   
     getfadeValue(station) => fadeValue;
-    getReps() => int reps;
+    Math.rand2(3, 23) => int reps;
     
     xmit.startMsg("/instrumentRhythm", "i i i");
-    station => xmit.addInt;
+    station => xmit.addInt; // TODO is 'error handling' currently done in Client.ck?
     reps => xmit.addInt;
     fadeValue => xmit.addInt;
     
@@ -190,31 +202,11 @@ fun void sendControlSignal(int station) {
     <<< "", "" >>>;
 }
 
-// multicasts name of this machine to all on LAN
-// TODO seems to send beat number 1-8.
-fun void sendPulse() {
-    0 => int beatNumber;
-      
-    while (true) {
-        xmit.startMsg("/pulse", "i");
-        (beatNumber % 8) + 1 => xmit.addInt;
-        beatNumber++;
-        250::ms => now;   
-    }
-} 
 
-//
-fun int getReps() {
-    return Std.rand2(3, 23);
-}
-
-// TODO fadeValue will always be 0-4?
+// Update fadeValue if keys q, w, e, r, t are pressed
 fun int getfadeValue(int station) {
     if (station >= 22 && station <= 26) { 
-        return station - 22;
+        station - 22 => fadeValue;
     }
-    else {
-        return fadeValue;
-    }
+    return fadeValue;
 }
-   

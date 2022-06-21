@@ -83,15 +83,25 @@
 //-----------------------------------------------------------------------------
 //
 
-Event finished; Event e; .5::second => dur T; 
-Hid KBhi; HidMsg kbmsg; int sendMe;
-0 => int kbdevice;
-if( me.args() ) me.arg(0) => Std.atoi => kbdevice;
-if( !KBhi.openKeyboard( kbdevice ) ) me.exit(); 
-//
+
+Hid hidDevice; 
+HidMsg hidMessage;
+0 => int keyboard;
+
+// TODO arg should be 1? Could depend on machine
+if (me.args()) { 
+    Std.atoi(me.arg(0)) => keyboard;
+}
+if (!hidDevice.openKeyboard(keyboard)) {
+    me.exit(); 
+}
+<<< "keyboard '" + hidDevice.name() + "' ready", "" >>>;
+
+
 // NETWORK PARAMETERS
 OscSend xmit;
-xmit.setHost( "224.0.0.1", 5502 );		
+xmit.setHost("224.0.0.1", 5502);
+	
 // key map
 int key[256];
 1 => key[29];//z
@@ -142,41 +152,30 @@ int key[256];
 46 => key[45];//-
 47 => key[46];//=
 48 => key[44]; //space
-//
 
-//
-while( true )
-{ int station;
-KBhi => now;
-while( KBhi.recv( kbmsg ) )
-{   if( kbmsg.which > 256 ) continue;
-if( kbmsg.isButtonDown() )
-{    
+11 => int currentTimbre;
+
+// Listen for input: a, s, d, f select timbre; z, x, c, v, b, n, m selects station(s)
+while (true) {
+    hidDevice => now;
     
-    if (key[kbmsg.which] >= 15) continue;
-    //<<< key[kbmsg.which] >>>;
-    if (key[kbmsg.which] >= 10) {key[kbmsg.which] => sendMe; //<<< key[kbmsg.which] >>>;
-    }//sendMe determines value, not sent until machine is chosen
-    if (key[kbmsg.which] > 0 && key[kbmsg.which] < 8) 
-    {
-        key[kbmsg.which] => station;
-        //read_Control(station, sendMe);
-        send_ControlSignal(station, sendMe);
-        //<<< sendMe >>>;
-        
+    while (hidDevice.recv(hidMessage)) {
+        if (hidMessage.isButtonDown()) {
+            key[inputMessage.which] => int keyValue;
+            
+            if (keyValue > 10 && keyValue < 15) {
+                keyValue => currentTimbre; // not sent until machine is chosen
+            } 
+            if (keyValue > 0 && keyValue < 8) {
+                sendOSC(keyValue, currentTimbre);
+            }
+        }
     }
 }
-}
-}
-//
-fun void send_ControlSignal(int x, int y)
-{   
-    xmit.startMsg( "/Timbre", "i i " );
-    x => xmit.addInt;
-    y => xmit.addInt;
-    //<<< x >>>;
-    
-    
-}
-//
 
+// TODO print what's being sent?
+fun void sendOSC(int station, int timbre) {
+    xmit.startMsg("/timbre", "i i");
+    station => xmit.addInt;
+    timbre => xmit.addInt;   
+}
