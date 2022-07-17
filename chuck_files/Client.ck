@@ -81,25 +81,21 @@ U.S.A.
 //-----------------------------------------------------------------------------
 
 
-// MACHINE AND OSC SETUP -------------------------------------------------------------
+// STATION AND OSC SETUP -------------------------------------------------------------
 
-int myMachine;
-
-if (me.args()) {
-    Std.atoi(me.arg(0)) => myMachine;
-    
-    if (myMachine < 1 || myMachine > 4) {
-        <<< "Not a valid machine choice." >>>;
-        me.exit();
-    } 
-    else {
-        <<< "My machine is number:", myMachine >>>;
-    }
-}
-else {
-    <<< "Invalid argument" >>>;
+if (!me.args()) {
+    <<< "Missing argument" >>>;
     me.exit();
 }
+
+Std.atoi(me.arg(0)) => int myStation;
+
+if (myStation < 0 || myStation > 3) {
+    <<< "Invalid argument" >>>;
+    me.exit();
+}  
+
+<<< "My station is number:", myStation >>>;
 
 OscRecv recv[4];
 5501 => recv[0].port; //receives texture and pulse
@@ -111,7 +107,6 @@ for (0 => int i; i < 4; i++) {
     recv[i].listen();
 }
 
-// TODO why does recv[0] have two .event operations?
 recv[0].event("/pulse, i") @=> OscEvent pulseEvent;
 recv[0].event("/instrumentRhythm, i i i") @=> OscEvent instrumentRhythmEvent;
 recv[1].event("/timbre, i i") @=> OscEvent timbreEvent;
@@ -299,8 +294,9 @@ Envelope sweepEnvelope[sweepCount];
 // TODO what is the purpose of dry vs sweepGain?
 Gain dry;
 Gain wet;
-Gain sweepGain => dry;
-dry => DelayL del => HPF highPass => Dyno compression => mainOut;
+Gain sweepGain;
+
+sweepGain => dry => DelayL del => HPF highPass => Dyno compression => mainOut;
 del => wet => del;
 
 // set parameters
@@ -372,7 +368,7 @@ spork ~ timer();
 // MAIN AND HELPER FUNCTIONS ------------------------------------------------------------------------
 
 // Repeatedly receives counts 1-8 from TextureServe.ck 
-// TODO intention vs timer? Is it functional? See sendPulse() in TextureServe.ck
+// TODO intention vs timer? Is it functional? See sendPulse() in TextureServe.ck (currently printing is off)
 fun void pulseListener() {
     while (true) {
         pulseEvent => now;
@@ -380,7 +376,7 @@ fun void pulseListener() {
         while (pulseEvent.nextMsg() != 0) {
             pulseEvent.getInt() => int beatCount;
             globalEvent.broadcast();
-            //<<< Beat >>>;
+            // <<< Beat >>>;
         }
     }
 }
@@ -394,75 +390,38 @@ fun void getRhythm() {
             rhythmEvent.getInt() => int station;
             rhythmEvent.getInt() => int control;
             
-            if (selectRhythm(station) && control == 5) { // TODO why control == 5?
-                0 => taleaIndex; // taleaIndex is reset to 0 if everyone is sent a parameter change
+            selectMachines(station) => int isSelected;
+            
+            if (isSelected) {
+                if (control == 5) { // TODO why control == 5? should this be station == 5?
+                    0 => taleaIndex; // taleaIndex is reset to 0 if everyone is sent a parameter change
+                }
                 rhythmControl(control);
-            }
-            else if (selectRhythm(station)) {
-                rhythmControl(control);
-            }
-            else {
-                // TODO what if neither of the above conditions are satisfied?
             }
         }
     }
 }
 
-// TODO evaluation of return boolean: check > -1 vs check > 0
-fun int selectRhythm(int station) {
-    [[1, 5, 7, 11, 15, 17],
-    [1, 5],
-    [2, 6, 7, 12, 16, 17],
-    [2, 5],
-    [3, 5, 7, 13, 14, 17],
-    [3, 5], 
-    [4, 6, 7, 14, 16, 17],
-    [4, 5]
-    ] @=> int machineArray[][];
-    
-    int jack;
-    
-    if (myMachine == 1) {
-        1 => jack;
-    }
-    if (myMachine == 2) {
-        3 => jack;
-    }
-    if (myMachine == 3) {
-        5 => jack;
-    }
-    if (myMachine == 4) {
-        7 => jack;
-    }
-    
-    machineArray[jack] @=> int rhythmRoute[];
-    -1 => int check;
-    
-    for (0 => int i; i < rhythmRoute.cap(); i++) {        
-        if (rhythmRoute[i] == station) {
-            1 +=> check;
-        }
-    }
-    return check > -1;
-}
-
-// TODO changes different parameters based on control value? (delay vs talea vs tempo); are all cases covered? (no else block)
+// Changes different parameters based on control value (delay vs talea vs tempo)
+// TODO refactor to eliminate magic numbers
 fun void rhythmControl(int control) {
-    if (control > 5 && control < 11) {
-        control - 6 => delayIndex;
-        <<< "My delay is:", delayArray[delayIndex], "of pulse." >>>;
-    }
-    else if (control > 10 && control < 16) {
-        control - 11 => taleaIndex;
-        <<< "My talea index is:", taleaIndex >>>;
-    }
-    else if (control > 15 && control < 21) {
-        control - 16 => tempoIndex;
-        <<< "My tempo index is:", tempoIndex >>>;
+    if (control < 21) {
+        if (control > 15) {
+            control - 16 => tempoIndex;
+            <<< "My tempo index is:", tempoIndex >>>;
+        }
+        else if (control > 10) {
+            control - 11 => taleaIndex;
+            <<< "My talea index is:", taleaIndex >>>;
+        }
+        else {
+            control - 6 => delayIndex;
+            <<< "My delay is:", delayArray[delayIndex], "of pulse." >>>;
+        }
     }
 }
 
-// TODO are all cases covered? It seems timbreControl is called as long as station > 0
+// 
 fun void getTimbre() {
     while (true) {
         timbreEvent => now;
@@ -470,73 +429,29 @@ fun void getTimbre() {
         while (timbreEvent.nextMsg() != 0) {
             timbreEvent.getInt() => int station;
             timbreEvent.getInt() => int control;
-            //<<< station, control >>>;
             
-            if (selectTimbre(station) && station == 6) {
-                timbreControl(station);
-            }
-            else if (selectTimbre(station) && station == 7) {
-                timbreControl(station);
-            }
-            else if (selectTimbre(station)) {
+            selectMachines(station) => int isSelected;
+            
+            if (isSelected) {
                 timbreControl(control);
-                //<<< "yes" >>>;
             }
         }
     }
 }
 
-// TODO evaluation of return boolean: check > -1 vs check > 0
-fun int selectTimbre(int station) {
-    [[1, 5, 7, 11, 15, 17],
-    [1, 5, 6],
-    [2, 6, 7, 12, 16, 17],
-    [2, 5, 7],
-    [3, 5, 7, 13, 14, 17],
-    [3, 5, 6], 
-    [4, 6, 7, 14, 16, 17],
-    [4, 5, 7]
-    ] @=> int machineArray[][];
-    
-    int jack;
-    
-    if (myMachine == 1) {
-        1 => jack;
-    }
-    if (myMachine == 2) {
-        3 => jack;
-    }
-    if (myMachine == 3) {
-        5 => jack;
-    }
-    if (myMachine == 4) {
-        7 => jack;
-    }
-    //<<< jack >>>;
-    
-    machineArray[jack] @=> int timbreRoute[];
-    -1 => int check;
-    
-    for (0 => int i; i < timbreRoute.cap(); i++) {      
-        if (timbreRoute[i] == station) {
-            1 +=> check;
-        }
-    }
-    return check > -1;
-}
-
-//
+// TODO reduce use of magic numbers, compare error handling between here and RhythmsServe
 fun void timbreControl(int control) {
-    if (control >= 6 && control <= 8) {
-        Std.rand2(0,  3) => timbre;
+    if (control > 5 && control < 8) {
+        Std.rand2(0, 3) => timbre;
     }
-    else if (control >= 10 && control <= 14) {
+    else if (control > 10 && control < 15) {
         control - 11 => timbre;
     }
     <<< timbre >>>;
 }
 
-// TODO lack of else blocks?
+
+// TODO improve invalid station handling (station < 18 indicates < 'K' key on TextureServe) - possibly moved this to TextureServe.ck
 fun void getTexture() {
     [50, 300, 1000, 2000, 5000] @=> int fadeValues[];
     
@@ -547,69 +462,31 @@ fun void getTexture() {
             instrumentRhythmEvent.getInt() => int station;             
             instrumentRhythmEvent.getInt() => int reps;
             instrumentRhythmEvent.getInt() => int index;
-            
-            <<< station >>>;
+                        
+            selectMachines(station) => int isSelected;
             
             // patch to stations
             // TODO should fadeUp/fadeOut be sporked?
-            if (selectTexture(station)) {
+            if (isSelected) {
                 <<< "My reps:", reps, "my Fade:", fadeValues[index], "::ms" >>>;
                 fadeUp(fadeValues[index]::ms);
+                
+                // choose mode
+                if (station < 10 && isSelected) {
+                    <<< "Unison" >>>;
+                    spork ~ waitForUnison(globalEvent, reps);
+                }
+                else {
+                    <<< "Poly" >>>;
+                    spork ~ waitForPoly(globalEvent, reps);
+                }
             }
-            else if (selectTexture(station) == 0 && station <= 18) { // TODO why station <= 18?
+            if (!isSelected && station < 18) { // TODO is the intention to fade out whenever a new machine is sounding?
                 <<< "Not me this time, but reps =", reps >>>;
                 fadeOut(fadeValues[index]::ms);
             }
-            
-            // choose mode
-            if (station < 10 && selectTexture(station)) {
-                <<< "Unison" >>>;
-                spork ~ waitForUnison(globalEvent, reps);
-            }
-            else if (station > 10 && selectTexture(station)) {
-                <<< "Poly" >>>;
-                spork ~ waitForPoly(globalEvent, reps);
-            }
         } 
     }
-}
-
-// routes texture data to machine
-fun int selectTexture(int station) {
-    [[1, 5, 7, 11, 15, 17],
-    [1, 5],
-    [2, 6, 7, 12, 16, 17],
-    [2, 5],
-    [3, 5, 7, 13, 14, 17],
-    [3, 5], 
-    [4, 6, 7, 14, 16, 17],
-    [4, 5]
-    ] @=> int machineArray[][];
-    
-    int jack;
-    
-    if (myMachine == 1) {
-        0 => jack;
-    }
-    if (myMachine == 2) {
-        2 => jack;
-    }
-    if (myMachine == 3) {
-        4 => jack;
-    }
-    if (myMachine == 4) {
-        6 => jack;
-    }
-    
-    machineArray[jack] @=> int textureBang[];
-    -1 => int check;
-    
-    for (0 => int i; i < textureBang.cap(); i++) {
-        if (textureBang[i] == station) {
-            1 +=> check;
-        }
-    }
-    return check > -1;
 }
 
 // TODO role of events?
@@ -618,7 +495,6 @@ fun void waitForUnison(Event e, int reps) {
     Event off;
     e => now;
     delayArray[delayIndex]::T => now; // TODO is this deliberately set to previously selected value of T?
-    //<<< "wait" >>>;
     
     tempo[tempoIndex]::second => T;
     color[colorIndex] @=> int colorSequence[];
@@ -656,7 +532,6 @@ fun void waitForUnison(Event e, int reps) {
 fun void waitForPoly(Event e, int reps) { 
     Event off;
     e => now;
-    //<<< "wait" >>>;
     
     tempo[tempoIndex]::second => T;
     color[colorIndex] @=> int colorSequence[];
@@ -784,12 +659,34 @@ fun int getFreeVoice(int voices[]) {
     return -1;
 }
 
+// possibleRoutes refers to the values assigned in ColorServe, RhythmServe, TimbreServe, and TextureServe
+fun int selectMachines(int station) {
+    [[1, 5, 7, 11, 15, 17],
+    [2, 6, 7, 12, 16, 17],
+    [3, 5, 7, 13, 14, 17],
+    [4, 6, 7, 14, 16, 17]
+    ] @=> int possibleRoutes[][];
+    
+    possibleRoutes[myStation] @=> int route[];
+    0 => int isSelected;
+    
+    for (0 => int i; i < route.cap(); i++) {      
+        if (route[i] == station) {
+            1 +=> isSelected;
+        }
+    }
+    return isSelected;
+}
+
+
 //----------------------------------------------------------------------
 // TODO what do these do?
 //      Result of dividing two durations and chucking to float?
 //      Can this logic be replaced by the use of a 'master' Envelope on mainOut?
+//      Consider removing if using MIDI instruments
 
-fun void fadeUp (dur fadeTime) {   
+fun void fadeUp (dur fadeTime) {
+    <<< "fading up" >>>; // TODO remove   
     fadeTime / 2::ms => float n;
     0.9 / n => float d;
     
@@ -802,7 +699,8 @@ fun void fadeUp (dur fadeTime) {
     }
 }
 
-fun void fadeOut(dur fadeTime) {   
+fun void fadeOut(dur fadeTime) {
+    <<< "fading down" >>>; // TODO remove
     fadeTime / 2::ms => float n;
     0.9 / n => float d;
     
@@ -816,7 +714,7 @@ fun void fadeOut(dur fadeTime) {
 }
 //----------------------------------------------------------------------
 
-//
+// Sets the pitch collection currently in use
 fun void getColor() {
     while (true) {
         colorEvent => now;
