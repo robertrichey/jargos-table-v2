@@ -156,15 +156,13 @@ int ringIndex;
 ] @=> float taleaArray[][];
 int taleaIndex;
 
-// TODO does order within tempo array matter? (see rhythmControl)
 1.0 / 3.0 => float oneThird;
 1.0 / 6.0 => float oneSixth;
 [0.5, 1.0, 1.5, oneSixth, oneThird] @=> float tempo[];
 int tempoIndex;
 
-// TODO T needs to be further clarified
-dur T;
-tempo[tempoIndex]::second => T;
+dur timeUnit;
+tempo[tempoIndex]::second => timeUnit;
 
 [0.0, 0.25, 0.5, 1.0, 2.0] @=> float delayArray[];
 int delayIndex;
@@ -256,7 +254,7 @@ float mainOutGain => mainOut.gain; // TODO initialization of mainOutGain? Only u
 2020.63 => float b6; //95
 2190.65 => float c7;//96
 
-// the array TODO describe
+// Named frequencies is used for pitch collections
 [c1, csh1, d1, dsh1, e1, f1, fsh1, g1, gsh1, a1, ash1, b1,
 c2, csh2, d2, dsh2, e2, f2, fsh2, g2, gsh2, a2, ash2, b2,
 c3, csh3, d3, dsh3, e3, f3, fsh3, g3, gsh3, a3, ash3, b3,
@@ -265,7 +263,7 @@ c5, csh5, d5, dsh5, e5, f5, fsh5, g5, gsh5, a5, ash5, b5,
 c6, csh6, d6, dsh6, e6, f6, fsh6, g6, gsh6, a6, ash6, b6, c7] @=> float pitches[]; 
 
 
-//
+// Plucked string sound
 10 => int pluckedCount;
 int pluckedVoices[pluckedCount]; // an array to keep up with voices used
 StifKarp pluckedString[pluckedCount];
@@ -275,7 +273,6 @@ JCRev pluckedReverb;
 0.05 => pluckedReverb.mix; 
 pluckedReverb => mainOut;
 
-//
 for (0 => int i; i < pluckedCount; i++) {
     pluckedString[i] => pluckedFilter[i] => pluckedEnvelope[i]; 
     1.0 => pluckedFilter[i].gain;
@@ -285,28 +282,29 @@ for (0 => int i; i < pluckedCount; i++) {
     0 => pluckedVoices[i];  // set voices to free
 }
 
+// Swept string sound
 10 => int sweepCount;
 int sweepVoices[sweepCount];
 StifKarp sweepString[sweepCount];
 BPF sweepFilter[sweepCount];
 Envelope sweepEnvelope[sweepCount];
 
-// TODO what is the purpose of dry vs sweepGain?
 Gain dry;
 Gain wet;
 Gain sweepGain;
+DelayL linearDelay;
+HPF highPass;
+Dyno compression;
 
-sweepGain => dry => DelayL del => HPF highPass => Dyno compression => mainOut;
-del => wet => del;
+sweepGain => dry => linearDelay => highPass => compression => mainOut;
+linearDelay => wet => linearDelay;
 
-// set parameters
 0.15 => dry.gain;
 0.99 => wet.gain;
-10::ms => del.delay;
+10::ms => linearDelay.delay;
 3 => highPass.Q;
 compression.compress();
 
-//
 for (0 => int i; i < sweepCount; i++) {
     sweepString[i] => sweepFilter[i] => sweepEnvelope[i]; 
     2.0 => sweepFilter[i].gain;
@@ -316,8 +314,7 @@ for (0 => int i; i < sweepCount; i++) {
     0 => sweepVoices[i];
 }
 
-
-//
+// Blown instrument sound
 10 => int blowCount;
 int blowVoices[blowCount];
 BlowBotl blowBottle[blowCount]; 
@@ -332,8 +329,7 @@ for (0 => int i; i < blowCount; i++) {
     0 => blowVoices[i];
 }
 
-
-//
+// Sine waves
 10 => int sineCount;
 int sineVoices[sineCount];
 SinOsc sine[sineCount];
@@ -368,7 +364,8 @@ spork ~ timer();
 // MAIN AND HELPER FUNCTIONS ------------------------------------------------------------------------
 
 // Repeatedly receives counts 1-8 from TextureServe.ck 
-// TODO intention vs timer? Is it functional? See sendPulse() in TextureServe.ck (currently printing is off)
+// TODO intention vs timer()? Is it functional?
+//      See sendPulse() in TextureServe.ck (currently printing is off, event broadcast logic unclear)
 fun void pulseListener() {
     while (true) {
         pulseEvent => now;
@@ -376,9 +373,28 @@ fun void pulseListener() {
         while (pulseEvent.nextMsg() != 0) {
             pulseEvent.getInt() => int beatCount;
             globalEvent.broadcast();
-            // <<< Beat >>>;
+            // <<< beatCount >>>;
         }
     }
+}
+
+// possibleRoutes refers to the values assigned in ColorServe, RhythmServe, TimbreServe, and TextureServe
+fun int selectMachines(int station) {
+    [[1, 5, 7, 11, 15, 17],
+    [2, 6, 7, 12, 16, 17],
+    [3, 5, 7, 13, 14, 17],
+    [4, 6, 7, 14, 16, 17]
+    ] @=> int possibleRoutes[][];
+    
+    possibleRoutes[myStation] @=> int route[];
+    0 => int isSelected;
+    
+    for (0 => int i; i < route.cap(); i++) {      
+        if (route[i] == station) {
+            1 +=> isSelected;
+        }
+    }
+    return isSelected;
 }
 
 //
@@ -481,7 +497,7 @@ fun void getTexture() {
                     spork ~ waitForPoly(globalEvent, reps);
                 }
             }
-            if (!isSelected && station < 18) { // TODO is the intention to fade out whenever a new machine is sounding?
+            if (!isSelected && station < 18) { // TODO is the intention to fade out whenever a new machine is fading in?
                 <<< "Not me this time, but reps =", reps >>>;
                 fadeOut(fadeValues[index]::ms);
             }
@@ -489,21 +505,21 @@ fun void getTexture() {
     }
 }
 
-// TODO role of events?
+// TODO role of events? Currently prevent functions from exiting, not sure how 'e' gets signaled
 // TODO talea vs ringTime when performing a 'unison'
 fun void waitForUnison(Event e, int reps) {
     Event off;
     e => now;
-    delayArray[delayIndex]::T => now; // TODO is this deliberately set to previously selected value of T?
+    delayArray[delayIndex]::timeUnit => now; // TODO is this deliberately set to previously selected value of 'T'?
     
-    tempo[tempoIndex]::second => T;
+    tempo[tempoIndex]::second => timeUnit;
     color[colorIndex] @=> int colorSequence[];
     ringTime[ringIndex] @=> float ringSequence[];
     taleaArray[taleaIndex] @=> float taleaSequence[];
     
     for (0 => int i; i < reps; i++) {
         colorSequence[i % colorSequence.cap()] => int note;
-        ringSequence[i % ringSequence.cap()]::T => dur length;
+        ringSequence[i % ringSequence.cap()]::timeUnit => dur length;
             
         if (timbre == 0) {
             <<< "Sine" >>>;
@@ -521,26 +537,27 @@ fun void waitForUnison(Event e, int reps) {
             <<< "Sweep" >>>;
             spork ~ playSweep(note, length, 8::ms, 10::ms, Std.rand2f(0.5, 0.7));
         }
-        taleaSequence[i % taleaSequence.cap()]::T => now; 
+        taleaSequence[i % taleaSequence.cap()]::timeUnit => now; 
     } 
     off.signal();
     off => now;
+    <<< "DONE!" >>>;
 }
 
-// TODO doesn't select a delay?
-// TODO role of events?
+// TODO role of events? Currently prevent functions from exiting, not sure how 'e' gets signaled
+// TODO doesn't select a delay? (See line 497)
 fun void waitForPoly(Event e, int reps) { 
     Event off;
     e => now;
     
-    tempo[tempoIndex]::second => T;
+    tempo[tempoIndex]::second => timeUnit;
     color[colorIndex] @=> int colorSequence[];
     ringTime[ringIndex] @=> float ringSequence[]; 
     taleaArray[taleaIndex] @=> float taleaSequence[];
     
     for (0 => int i; i < reps; i++) {
         colorSequence[Std.rand2(0, colorSequence.cap()-1)] => int note;
-        ringSequence[Std.rand2(0, ringSequence.cap()-1)]::T => dur length;
+        ringSequence[Std.rand2(0, ringSequence.cap()-1)]::timeUnit => dur length;
         
         if (timbre == 0) {
             <<< "Sine" >>>;
@@ -558,7 +575,7 @@ fun void waitForPoly(Event e, int reps) {
             <<< "Sweep" >>>;
             spork ~ playSweep(note, length, 8::ms, 10::ms, Std.rand2f(0.7, 0.99));
         }
-        0.5::T => now; // a periodic groove
+        0.5::timeUnit => now; // a periodic groove
     } 
     off.signal();
     off => now;
@@ -659,25 +676,6 @@ fun int getFreeVoice(int voices[]) {
     return -1;
 }
 
-// possibleRoutes refers to the values assigned in ColorServe, RhythmServe, TimbreServe, and TextureServe
-fun int selectMachines(int station) {
-    [[1, 5, 7, 11, 15, 17],
-    [2, 6, 7, 12, 16, 17],
-    [3, 5, 7, 13, 14, 17],
-    [4, 6, 7, 14, 16, 17]
-    ] @=> int possibleRoutes[][];
-    
-    possibleRoutes[myStation] @=> int route[];
-    0 => int isSelected;
-    
-    for (0 => int i; i < route.cap(); i++) {      
-        if (route[i] == station) {
-            1 +=> isSelected;
-        }
-    }
-    return isSelected;
-}
-
 
 //----------------------------------------------------------------------
 // TODO what do these do?
@@ -733,8 +731,7 @@ fun void sweep() {
     
     while (true) {
         // sweep the cutoff
-        Math.sin(t) * 110 => Std.fabs => Std.mtof => highPass.freq; 
-        // Std.mtof(Std.fabs(Math.sin(t) * 110)) => highPass.freq; // TODO compare to above
+        Std.mtof(Std.fabs(Math.sin(t) * 110)) => highPass.freq;
         // increment t
         0.005 +=> t;
         // advance time
